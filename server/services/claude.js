@@ -71,6 +71,41 @@ const synthesizeResearch = async (researchData, templateData) => {
   }
 };
 
+const extractCompetitors = async (rawSearchData, targetAccount) => {
+  const systemPrompt = `You are a business intelligence assistant. Extract a clean list of top 10 direct competitors from the provided research data.`;
+  const userPrompt = `
+  Target Company: ${targetAccount}
+  
+  RESEARCH DATA:
+  ${typeof rawSearchData === 'string' ? rawSearchData : JSON.stringify(rawSearchData)}
+
+  TASK:
+  Extract exactly 5-10 direct competitors. 
+  For each, provide:
+  1. name (official company name)
+  2. description (1-sentence relevance)
+
+  OUTPUT FORMAT:
+  Return ONLY a JSON array: [{"name": "...", "description": "..."}, ...]`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20240620",
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    });
+
+    const text = response.content[0].text;
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+  } catch (error) {
+    console.error('Claude Extraction Error:', error);
+    return [];
+  }
+};
+
 module.exports = {
-  synthesizeResearch
+  synthesizeResearch,
+  extractCompetitors
 };

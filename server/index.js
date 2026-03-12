@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { findCompetitors, researchPeer } = require('./services/parallel');
-const { synthesizeResearch } = require('./services/claude');
+const { synthesizeResearch, extractCompetitors } = require('./services/claude');
 
 dotenv.config();
 
@@ -20,8 +20,9 @@ app.post('/api/competitors', async (req, res) => {
   }
 
   try {
-    const competitors = await findCompetitors(targetCompany);
-    res.json({ competitors });
+    const rawCompetitors = await findCompetitors(targetCompany);
+    const cleanCompetitors = await extractCompetitors(rawCompetitors, targetCompany);
+    res.json({ competitors: cleanCompetitors });
   } catch (error) {
     console.error('Competitor discovery error:', error);
     res.status(500).json({ error: 'Failed to find competitors.', details: error.message });

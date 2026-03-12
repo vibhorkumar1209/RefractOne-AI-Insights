@@ -12,12 +12,68 @@ import {
   Trash2,
   AlertCircle,
   Trophy,
-  ArrowRight
+  ArrowRight,
+  TrendingUp,
+  LineChart,
+  Globe,
+  Users,
+  MessageSquare,
+  Zap,
+  Briefcase,
+  PieChart,
+  Layout
 } from 'lucide-react';
 import axios from 'axios';
 import pptxgen from 'pptxgenjs';
 
 // --- Sub-components ---
+
+const Sidebar = ({ activeModule }) => {
+  const menuItems = [
+    { id: 'financial', name: 'Financial Analysis', icon: LineChart },
+    { id: 'peers', name: 'Peer Benchmarking', icon: Layers, active: true },
+    { id: 'business', name: 'Business Themes', icon: Briefcase },
+    { id: 'tech', name: 'Technology Themes', icon: Zap },
+    { id: 'sustainability', name: 'Sustainability Themes', icon: Globe },
+    { id: 'buyers', name: 'Key Prospective Buyers', icon: Users },
+    { id: 'social', name: 'Social Insights', icon: MessageSquare },
+    { id: 'challenges', name: 'Growth & Challenges', icon: TrendingUp },
+    { id: 'trends', name: 'Industry Trends', icon: PieChart },
+    { id: 'sales', name: 'Sales Opportunity Map', icon: Target },
+    { id: 'account', name: 'Account Plan', icon: Layout }
+  ];
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-header">
+        <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
+          <Zap className="text-white" size={24} />
+        </div>
+        <div>
+          <h1 className="text-xl font-black text-slate-900 leading-tight">RefractOne</h1>
+          <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">AI Strategy Engine</p>
+        </div>
+      </div>
+      
+      <div className="sidebar-nav">
+        <p className="nav-section-title">Strategic Insights</p>
+        {menuItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div 
+              key={item.id} 
+              className={`nav-item ${item.active ? 'active' : 'disabled'}`}
+              title={item.active ? '' : 'Coming soon'}
+            >
+              <Icon size={18} />
+              <span>{item.name}</span>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
+  );
+};
 
 const StepIndicator = ({ currentStep }) => {
   const steps = [
@@ -135,8 +191,15 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
         
         const output = response.data.competitors;
         let peers = [];
-        if (typeof output === 'string') {
-          // Robust parsing for various AI list formats
+        
+        if (Array.isArray(output)) {
+          // If Claude already returned clean objects
+          peers = output.map(p => ({
+            name: p.name || p.companyName || p,
+            description: p.description || p.relevance || 'Strategic competitor.'
+          }));
+        } else if (typeof output === 'string') {
+          // Fallback parsing
           const lines = output.split('\n').filter(l => l.trim() && l.match(/[a-zA-Z]/));
           peers = lines.map(p => {
             const clean = p.replace(/^[\d\.\-\s*]+/, '').trim();
@@ -146,8 +209,6 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
               description: parts.slice(1).join(':').trim() || 'Direct competitor identified via research.'
             };
           }).filter(p => p.name.length > 2);
-        } else if (Array.isArray(output)) {
-          peers = output;
         }
 
         setDiscoveredPeers(peers.slice(0, 10));
@@ -529,31 +590,24 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-12 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-16">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <Layers className="text-white" size={28} />
-          </div>
+    <div className="app-container">
+      <Sidebar activeModule="peers" />
+      
+      <main className="main-content">
+        <header className="mb-12 flex justify-between items-end">
           <div>
-            <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
-              RefractOne
-            </h1>
-            <p className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase">AI Sales Insights</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Peer Benchmarking</h2>
+            <p className="text-slate-500 font-medium">Strategic gap analysis vs. market leaders</p>
           </div>
-        </div>
-        <div className="hidden md:flex items-center gap-6">
-          <span className="text-xs font-medium text-white/40 uppercase tracking-widest">Powered by Parallel.AI & Claude 3.5</span>
-          <div className="w-px h-4 bg-white/10" />
-          <div className="text-xs font-bold px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/70">
-            Vercel Managed
+          <div className="hidden md:block text-right">
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Live Environment</p>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-xs font-bold text-slate-900">Claude 3.5 Sonnet Connected</span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main Content */}
-      <main>
         {step < 4 && <StepIndicator currentStep={step} />}
 
         {step === 1 && (
@@ -592,10 +646,14 @@ const App = () => {
             formData={formData}
           />
         )}
-      </main>
 
-      {/* Footer Decoration */}
-      <div className="fixed bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none" />
+        {/* Footer info */}
+        <footer className="mt-12 pt-8 border-t border-slate-200 text-center">
+          <p className="text-xs text-slate-400 font-medium">
+            &copy; 2026 RefractOne AI Insights. All rights reserved. Precise, source-verified competitive intelligence.
+          </p>
+        </footer>
+      </main>
     </div>
   );
 };
