@@ -7,75 +7,62 @@ const anthropic = new Anthropic({
 });
 
 async function tryClaudeModels(system, user, max_tokens) {
-  const models = [
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5",
-    "claude-opus-4-6"
-  ];
-
-  for (const model of models) {
-    try {
-      console.log(`[AI] Trying Claude: ${model}`);
-      const response = await anthropic.messages.create({
-        model: model,
-        max_tokens: max_tokens,
-        system: system,
-        messages: [{ role: "user", content: user }],
-      }, { timeout: 10000 }); // 10s timeout
-      console.log(`[AI] Claude ${model} succeeded`);
-      return response.content[0].text;
-    } catch (e) {
-      console.warn(`[AI] Claude ${model} failed:`, e.message);
-      if (e.message.toLowerCase().includes('credit') || e.message.toLowerCase().includes('balance')) throw e;
-    }
+  // Use Sonnet 4.6 as primary, with a reasonable timeout
+  try {
+    console.log(`[AI] Calling Claude: claude-sonnet-4-6`);
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: max_tokens,
+      system: system,
+      messages: [{ role: "user", content: user }],
+    }, { timeout: 20000 }); // 20s for Claude
+    return response.content[0].text;
+  } catch (e) {
+    console.warn(`[AI] Claude primary failed:`, e.message);
+    if (e.message.toLowerCase().includes('credit') || e.message.toLowerCase().includes('balance')) throw e;
+    throw e;
   }
-  throw new Error('All Claude models failed');
 }
 
 const synthesizeResearch = async (researchData, templateData) => {
-  const { sellingOrg, targetAccount, industry, focusArea, solutionPortfolio } = templateData;
-  console.log(`[AI] Starting synthesis for ${targetAccount}`);
+  const { sellingOrg, targetAccount, focusArea } = templateData;
+  console.log(`[AI] Synthesizing for ${targetAccount}`);
 
-  const systemPrompt = `You are a senior B2B sales intelligence analyst. Synthesize research into Peer Benchmarking and Gap Analysis JSON.`;
+  const sysPrompt = "B2B Sales Analyst. Synthesize research into Peer Benchmarking JSON.";
+  
+  // Drastic data reduction for synthesis
+  const summary = {};
+  for (const peer in researchData) {
+    summary[peer] = String(researchData[peer]).substring(0, 5000);
+  }
 
   const userPrompt = `
-  Context: Target ${targetAccount}, Seller ${sellingOrg}, Focus ${focusArea}
-  Research: ${JSON.stringify(researchData).substring(0, 40000)}
-  Required JSON: { benchmarkingTable: { headers: [], rows: [{ dimension, values: [] }] }, gapAnalysis: [{ dimension, peerState, targetState, severity, solution: { name, proofPoint } }] }
-  Output ONLY JSON.`;
+  Target: ${targetAccount} | Seller: ${sellingOrg} | Focus: ${focusArea}
+  Research: ${JSON.stringify(summary)}
+  JSON Structure: { benchmarkingTable: { headers: [], rows: [{ dimension, values: [] }] }, gapAnalysis: [{ dimension, peerState, targetState, severity, solution: { name, proofPoint } }] }
+  Return JSON ONLY.`;
 
   try {
-    return await tryClaudeModels(systemPrompt, userPrompt, 4000);
+    return await tryClaudeModels(sysPrompt, userPrompt, 3000);
   } catch (error) {
-    console.warn('[AI] Claude failed, trying Parallel fallback');
+    console.warn('[AI] Claude failed, using Parallel Core fallback');
     
-    // Aggressive truncation for fallback
-    const truncated = JSON.stringify(researchData).substring(0, 15000);
-    let lastPerr = '';
-
-    for (const model of ['core', 'base']) {
-      try {
-        console.log(`[AI] Trying Parallel: ${model}`);
-        const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
-          model: model,
-          messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}\n\nResearch Data: ${truncated}` }]
-        }, {
-          headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.PARALLEL_API_KEY },
-          timeout: 25000 // Increased to 25s
-        });
-        
-        const content = response.data.choices[0].message.content;
-        if (content && content.includes('{')) {
-          console.log(`[AI] Parallel ${model} succeeded`);
-          return content;
-        }
-      } catch (perr) {
-        lastPerr = perr.response?.data?.error?.message || perr.message;
-        console.warn(`[AI] Parallel ${model} failed:`, lastPerr);
-      }
+    try {
+      const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
+        model: 'core',
+        messages: [{ role: 'user', content: `${sysPrompt}\n\n${userPrompt}` }]
+      }, {
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.PARALLEL_API_KEY },
+        timeout: 25000 // 25s for Parallel
+      });
+      
+      const content = response.data.choices[0].message.content;
+      if (content && content.includes('{')) return content;
+    } catch (perr) {
+      console.error('[AI] Fallback failed:', perr.message);
     }
     
-    throw new Error(`Synthesis Failed. Claude: ${error.message}. Parallel: ${lastPerr}`);
+    throw error;
   }
 };
 

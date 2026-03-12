@@ -14,6 +14,16 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
+app.get('/api/debug/claude', async (req, res) => {
+  try {
+    const { synthesizeResearch } = require('./services/claude');
+    const result = await synthesizeResearch({ test: "data" }, { targetAccount: "Test", focusArea: "Test" });
+    res.json({ status: 'success', preview: result.substring(0, 100) });
+  } catch (e) {
+    res.status(500).json({ status: 'error', message: e.message });
+  }
+});
+
 // 1. Find Competitors
 app.post('/api/competitors', async (req, res) => {
   const { targetCompany } = req.body;
