@@ -1,312 +1,604 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import { 
-  Activity, Search, Users, Database, Lightbulb, BarChart3, CheckCircle2, ArrowUpRight, 
-  RefreshCcw, ExternalLink, ChevronRight, Target, Zap, Shield, Layout, MessageSquare, 
-  Plane, Box, Truck, FileText, TrendingUp, AlertCircle, Globe, Code, Layers, Info, 
-  Landmark, CreditCard, ShieldCheck, ShoppingCart, Cpu, Car, Droplets, ChevronDown, Rocket
-} from "lucide-react";
+  Search, 
+  Building2, 
+  Target, 
+  Layers, 
+  ChevronRight, 
+  CheckCircle2, 
+  Loader2, 
+  Download,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Trophy,
+  ArrowRight
+} from 'lucide-react';
+import axios from 'axios';
+import pptxgen from 'pptxgenjs';
 
-// Feature List
-const FEATURES = [
-  { id: "financial-analysis", label: "Financial Analysis", icon: <BarChart3 size={18} />, desc: "Deep dive into financials" },
-  { id: "peer-benchmarking", label: "Peer Benchmarking", icon: <Users size={18} />, desc: "Competitive comparison" },
-  { id: "business-themes", label: "Business Themes", icon: <Lightbulb size={18} />, desc: "Strategic priorities" },
-  { id: "technology-themes", label: "Technology Themes", icon: <Cpu size={18} />, desc: "IT & Digital stack" },
-  { id: "sustainability-themes", label: "Sustainability Themes", icon: <Droplets size={18} />, desc: "ESG & Green initiatives" },
-  { id: "key-buyers", label: "Key Prospective Buyers", icon: <Target size={18} />, desc: "Decision makers" },
-  { id: "social-insights", label: "Social Insights", icon: <MessageSquare size={18} />, desc: "Brand & sentiment" },
-  { id: "challenges-prospects", label: "Challenges & Growth", icon: <TrendingUp size={18} />, desc: "Risks & opportunities" },
-  { id: "industry-trends", label: "Industry Trends", icon: <Globe size={18} />, desc: "Market movements" },
-  { id: "sales-play", label: "Sales Play - Opp Mapping", icon: <Zap size={18} />, desc: "Strategic wedges" },
-  { id: "account-plan", label: "Account Plan", icon: <FileText size={18} />, desc: "Full strategic roadmap" },
-];
+// --- Sub-components ---
 
-export default function App() {
-  const [activeFeature, setActiveFeature] = useState("peer-benchmarking");
-  const [organization, setOrganization] = useState("Infosys");
-  const [targetAccount, setTargetAccount] = useState("HDFC Bank");
-  const [focusArea, setFocusArea] = useState("");
-  
-  const [phase, setPhase] = useState("idle"); 
-  const [data, setData] = useState(null);
-  const [logs, setLogs] = useState([]);
+const StepIndicator = ({ currentStep }) => {
+  const steps = [
+    { id: 1, name: 'Setup', icon: Building2 },
+    { id: 2, name: 'Peers', icon: Search },
+    { id: 3, name: 'Research', icon: Layers },
+    { id: 4, name: 'Insights', icon: Trophy }
+  ];
 
-  const runAnalysis = async () => {
-    if (!organization || !targetAccount) return;
-    
-    setPhase("loading");
-    setData(null);
-    setLogs([
-      { time: new Date().toLocaleTimeString(), msg: `Initializing ${activeFeature} for ${targetAccount}...` },
-      { time: new Date().toLocaleTimeString(), msg: `Orchestrating agents with Parallel AI research...` },
-    ]);
+  return (
+    <div className="flex items-center justify-center space-x-4 mb-12">
+      {steps.map((step) => {
+        const Icon = step.icon;
+        const isActive = currentStep === step.id;
+        const isCompleted = currentStep > step.id;
 
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organization,
-          targetAccount,
-          focusArea,
-          feature: activeFeature
-        })
-      });
+        return (
+          <div key={step.id} className="flex items-center">
+            <div className={`
+              flex items-center justify-center w-10 h-10 rounded-full border-2 
+              transition-all duration-500
+              ${isActive ? 'border-primary text-primary shadow-[0_0_15px_rgba(99,102,241,0.4)]' : ''}
+              ${isCompleted ? 'bg-primary border-primary text-white' : 'border-border text-muted'}
+              ${!isActive && !isCompleted ? 'bg-transparent text-muted' : ''}
+            `}>
+              {isCompleted ? <CheckCircle2 size={20} /> : <Icon size={20} />}
+            </div>
+            {step.id < steps.length && (
+              <div className={`w-8 h-0.5 mx-2 ${isCompleted ? 'bg-primary' : 'bg-border'}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'Failed to fetch analysis');
+const SetupForm = ({ data, onChange, onNext }) => {
+  const isFormValid = data.sellingOrg && data.targetAccount && data.industry;
+
+  return (
+    <div className="glass-card p-8 max-w-2xl mx-auto fade-in">
+      <h2 className="text-2xl font-bold mb-6 text-white text-center">Project Configuration</h2>
+      <div className="space-y-6">
+        <div className="input-group">
+          <label className="input-label">User Organization (Selling Side)</label>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="e.g. EdgeVerve, Salesforce" 
+            value={data.sellingOrg}
+            onChange={(e) => onChange('sellingOrg', e.target.value)}
+          />
+        </div>
+        <div className="input-group">
+          <label className="input-label">Target Account (Client Side)</label>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="e.g. Incora, Maersk" 
+            value={data.targetAccount}
+            onChange={(e) => onChange('targetAccount', e.target.value)}
+          />
+        </div>
+        <div className="grid-cols-2">
+          <div className="input-group">
+            <label className="input-label">Industry Context</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="e.g. Aerospace Supply Chain" 
+              value={data.industry}
+              onChange={(e) => onChange('industry', e.target.value)}
+            />
+          </div>
+          <div className="input-group">
+            <label className="input-label">Focus Area (Optional)</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="e.g. Sustainability, AI" 
+              value={data.focusArea}
+              onChange={(e) => onChange('focusArea', e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="input-group">
+          <label className="input-label">Solution Portfolio (Your products to map)</label>
+          <textarea 
+            className="input-field" 
+            rows="2"
+            placeholder="e.g. AI Next, AssistEdge RPA, TradeEdge" 
+            value={data.solutionPortfolio}
+            onChange={(e) => onChange('solutionPortfolio', e.target.value)}
+          />
+        </div>
+        <button 
+          className="btn-primary w-full py-4 text-lg" 
+          disabled={!isFormValid}
+          onClick={onNext}
+        >
+          Identify Competitors <ArrowRight size={20} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PeerSelection = ({ data, onPeersSelected, onBack }) => {
+  const [discoveredPeers, setDiscoveredPeers] = useState([]);
+  const [selectedPeers, setSelectedPeers] = useState([]);
+  const [manualPeer, setManualPeer] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const getCompetitors = async () => {
+      try {
+        const response = await axios.post('/api/competitors', {
+          targetCompany: data.targetAccount,
+          industry: data.industry
+        });
+        
+        // Handle Parallel.AI response format
+        const output = response.data.competitors;
+        let peers = [];
+        if (typeof output === 'string') {
+          // Simple parsing if AI returned a list string
+          peers = output.split('\n').filter(p => p.trim()).map(p => ({ 
+            name: p.replace(/^\d+\.\s*/, '').replace(/^- \s*/, '').split(':')[0].trim(),
+            description: p.includes(':') ? p.split(':')[1].trim() : ''
+          }));
+        } else if (Array.isArray(output)) {
+          peers = output;
+        }
+
+        setDiscoveredPeers(peers.slice(0, 10));
+        setLoading(false);
+      } catch (err) {
+        console.error('Peer discovery error:', err);
+        setError('Failed to discover competitors automatically.');
+        setLoading(false);
       }
+    };
+    getCompetitors();
+  }, [data.targetAccount, data.industry]);
 
-      const result = await response.json();
-      setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: `Analysis complete. Synthesizing report...` }]);
-      setData(result);
-      setPhase("complete");
-    } catch (error) {
-      console.error(error);
-      setLogs(prev => [...prev, { time: new Date().toLocaleTimeString(), msg: `Error: ${error.message}` }]);
-      setPhase("error");
+  const togglePeer = (peerName) => {
+    if (selectedPeers.includes(peerName)) {
+      setSelectedPeers(selectedPeers.filter(p => p !== peerName));
+    } else {
+      if (selectedPeers.length >= 5) {
+        alert("Maximum 5 peers allowed.");
+        return;
+      }
+      setSelectedPeers([...selectedPeers, peerName]);
+    }
+  };
+
+  const addManualPeer = () => {
+    if (manualPeer && !selectedPeers.includes(manualPeer)) {
+      if (selectedPeers.length >= 5) {
+        alert("Maximum 5 peers allowed.");
+        return;
+      }
+      setSelectedPeers([...selectedPeers, manualPeer]);
+      setManualPeer('');
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-deep text-primary">
-      {/* Sidebar */}
-      <aside className="w-72 bg-surface border-r flex flex-col fixed h-full z-50">
-        <div className="p-6 border-b flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl primary-gradient flex items-center justify-center text-white shadow-lg">
-            <Activity size={22} strokeWidth={2.5} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight">Antigravity</h1>
-            <p className="text-[10px] text-muted font-bold tracking-[0.15em] uppercase">AI Insights Engine</p>
-          </div>
-        </div>
+    <div className="glass-card p-8 max-w-4xl mx-auto fade-in">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-white">Select Benchmarking Peers</h2>
+        <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/20 text-primary border border-primary/30">
+          {selectedPeers.length} / 5 Selected
+        </span>
+      </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-          {FEATURES.map((feature) => (
-            <button
-              key={feature.id}
-              onClick={() => setActiveFeature(feature.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
-                activeFeature === feature.id 
-                ? "bg-active text-cyan border border-cyan-subtle" 
-                : "text-muted hover:bg-accent hover:text-primary"
-              }`}
-              style={activeFeature === feature.id ? { 
-                background: 'linear-gradient(90deg, #00D4FF10 0%, #A855F710 100%)',
-                borderColor: '#00D4FF33',
-                color: '#00D4FF'
-              } : {}}
+      <div className="mb-8">
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="Add competitor manually..." 
+            value={manualPeer}
+            onChange={(e) => setManualPeer(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addManualPeer()}
+          />
+          <button onClick={addManualPeer} className="btn-primary px-4 bg-primary/10 border border-primary/30 hover:bg-primary/20 text-white">
+            <Plus size={20} />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1,2,3,4].map(i => <div key={i} className="skeleton h-24 w-full" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {discoveredPeers.map((peer, idx) => (
+            <div 
+              key={idx}
+              onClick={() => togglePeer(peer.name)}
+              className={`
+                p-4 rounded-xl border cursor-pointer transition-all duration-200
+                ${selectedPeers.includes(peer.name) 
+                  ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
+                  : 'bg-white/5 border-white/10 hover:border-white/20'}
+              `}
             >
-              <span>{feature.icon}</span>
-              <span className="truncate">{feature.label}</span>
-              {activeFeature === feature.id && <ChevronRight size={14} className="ml-auto" />}
-            </button>
+              <div className="flex justify-between items-start">
+                <h3 className="font-semibold text-white">{peer.name}</h3>
+                {selectedPeers.includes(peer.name) && <CheckCircle2 className="text-primary" size={18} />}
+              </div>
+              <p className="text-xs text-muted mt-1 leading-relaxed line-clamp-2">{peer.description}</p>
+            </div>
           ))}
-        </nav>
-
-        <div className="p-6 border-t">
-          <div className="bg-deep rounded-2xl p-4 border relative overflow-hidden group">
-            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-1">Status</p>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              <span className="text-xs font-bold text-primary">System Live</span>
+          {selectedPeers.filter(p => !discoveredPeers.some(dp => dp.name === p)).map((peer, idx) => (
+            <div 
+              key={`manual-${idx}`}
+              onClick={() => togglePeer(peer)}
+              className="p-4 rounded-xl border border-primary bg-primary/20 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+            >
+              <div className="flex justify-between items-start">
+                <h3 className="font-semibold text-white">{peer}</h3>
+                <CheckCircle2 className="text-primary" size={18} />
+              </div>
+              <p className="text-xs text-muted mt-1">Manually added competitor</p>
             </div>
-          </div>
+          ))}
         </div>
-      </aside>
+      )}
 
-      {/* Main Content */}
-      <main className="ml-72 flex-1 p-8 min-h-screen">
-        <div className="max-w-6xl mx-auto mb-10">
-          <div className="bg-surface border rounded-3xl p-8 relative overflow-hidden">
-             <div className="flex flex-col md:flex-row items-end gap-6 relative z-10">
-               <div className="flex-1 w-full space-y-2">
-                 <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-2">Your Organization</label>
-                 <input 
-                   value={organization} 
-                   onChange={(e) => setOrganization(e.target.value)}
-                   className="w-full bg-deep border rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-cyan transition-all"
-                   style={{ borderColor: 'var(--border-subtle)' }}
-                 />
-               </div>
-               <div className="flex-1 w-full space-y-2">
-                 <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-2">Target Account</label>
-                 <input 
-                   value={targetAccount} 
-                   onChange={(e) => setTargetAccount(e.target.value)}
-                   className="w-full bg-deep border rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-purple transition-all"
-                   style={{ borderColor: 'var(--border-subtle)' }}
-                 />
-               </div>
-               <div className="flex-1 w-full space-y-2">
-                 <label className="text-[10px] font-black text-muted uppercase tracking-[0.2em] ml-2">Focus Area</label>
-                 <input 
-                   value={focusArea} 
-                   onChange={(e) => setFocusArea(e.target.value)}
-                   className="w-full bg-deep border rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none transition-all"
-                   style={{ borderColor: 'var(--border-subtle)' }}
-                   placeholder="Optional"
-                 />
-               </div>
-               <button 
-                 onClick={runAnalysis}
-                 disabled={phase === "loading"}
-                 className={`px-10 py-4 rounded-2xl font-black text-sm tracking-wide transition-all flex items-center justify-center gap-3 shadow-xl ${
-                   phase === "loading" ? "bg-accent opacity-50 cursor-not-allowed" : "primary-gradient text-white"
-                 }`}
-               >
-                 {phase === "loading" ? <RefreshCcw size={18} className="animate-spin" /> : <Rocket size={18} />}
-                 {phase === "loading" ? "Orchestrating..." : "Identify Insights"}
-               </button>
-             </div>
-          </div>
+      {error && (
+        <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 flex items-center gap-3 mb-6">
+          <AlertCircle size={20} />
+          <p className="text-sm">{error}</p>
         </div>
+      )}
 
-        <div className="max-w-6xl mx-auto">
-          {phase === "loading" && (
-            <div className="bg-surface border rounded-3xl p-12 text-center space-y-6">
-               <Activity size={32} className="text-cyan animate-pulse mx-auto" />
-               <h3 className="text-2xl font-black text-white">Researching {targetAccount}...</h3>
-               <div className="max-w-md mx-auto space-y-3 text-left">
-                 {logs.map((log, i) => (
-                   <p key={i} className="font-mono text-xs text-muted">
-                     <span className="text-cyan">{log.time}</span> {log.msg}
-                   </p>
-                 ))}
-               </div>
-            </div>
-          )}
-
-          {phase === "complete" && data && (
-            <div className="animate-in fade-in zoom-in">
-              {activeFeature === "peer-benchmarking" ? (
-                 <PeerBenchmarkingResult data={data} clientName={targetAccount} ownerName={organization} />
-              ) : (
-                <PlaceholderResult title={FEATURES.find(f => f.id === activeFeature)?.label} data={data} />
-              )}
-            </div>
-          )}
-
-          {phase === "idle" && (
-            <div className="bg-surface border rounded-[60px] p-24 text-center space-y-8">
-               <div className="w-24 h-24 rounded-[32px] primary-gradient flex items-center justify-center text-white mx-auto shadow-2xl">
-                 {FEATURES.find(f => f.id === activeFeature)?.icon}
-               </div>
-               <h2 className="text-5xl font-black text-white tracking-tighter">
-                  Start {FEATURES.find(f => f.id === activeFeature)?.label}
-               </h2>
-               <p className="text-muted text-lg max-w-xl mx-auto">
-                  {FEATURES.find(f => f.id === activeFeature)?.desc}. 
-                  Deep research powered by Multi-Agent Parallel AI.
-               </p>
-            </div>
-          )}
-        </div>
-      </main>
+      <div className="flex gap-4">
+        <button className="flex-1 py-3 px-6 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors" onClick={onBack}>
+          Back
+        </button>
+        <button 
+          className="btn-primary flex-[2] py-4 text-lg" 
+          disabled={selectedPeers.length === 0}
+          onClick={() => onPeersSelected(selectedPeers)}
+        >
+          Generate Insights <ChevronRight size={20} />
+        </button>
+      </div>
     </div>
   );
-}
+};
 
-function PlaceholderResult({ title, data }) {
+const ResearchPhase = ({ data, onComplete }) => {
+  const [status, setStatus] = useState('Researching peers...');
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const runProcess = async () => {
+      try {
+        // Step 1: Research Peers Individually (to avoid Vercel timeouts)
+        const researchData = {};
+        for (let i = 0; i < data.peers.length; i++) {
+          const peer = data.peers[i];
+          setStatus(`Researching ${peer}...`);
+          setProgress(Math.round((i / data.peers.length) * 50));
+          
+          try {
+            const res = await axios.post('/api/research/peer', {
+              peer,
+              targetAccount: data.targetAccount,
+              industry: data.industry,
+              focusArea: data.focusArea
+            });
+            researchData[peer] = res.data.result;
+          } catch (err) {
+            console.error(`Error researching ${peer}:`, err);
+            researchData[peer] = "Information not available for this peer.";
+          }
+        }
+        
+        // Step 2: Synthesis
+        setProgress(70);
+        setStatus('Synthesizing research with Claude AI...');
+        const synthesisRes = await axios.post('/api/synthesize', {
+          researchData,
+          templateData: {
+            sellingOrg: data.sellingOrg,
+            targetAccount: data.targetAccount,
+            industry: data.industry,
+            focusArea: data.focusArea,
+            solutionPortfolio: data.solutionPortfolio || 'Standard portfolio'
+          }
+        });
+
+        setProgress(100);
+        onComplete(synthesisRes.data.synthesis);
+      } catch (err) {
+        console.error('Process error:', err);
+        setStatus('An error occurred during research/synthesis.');
+      }
+    };
+    runProcess();
+  }, []);
+
   return (
-    <div className="bg-surface border rounded-3xl p-12 text-center">
-       <div className="text-4xl mb-4">🔮</div>
-       <h2 className="text-3xl font-black text-white mb-4">{title}</h2>
-       <p className="text-muted mb-8 italic">"{data.message || 'Analysis in progress...'}"</p>
-       <div className="p-8 bg-deep border rounded-2xl inline-block">
-          <p className="text-[10px] text-muted uppercase font-bold tracking-widest mb-4">Discovery Engine Active</p>
-          <div className="space-y-2 opacity-20">
-            <div className="w-64 h-4 bg-accent rounded" />
-            <div className="w-48 h-4 bg-accent rounded" />
-            <div className="w-56 h-4 bg-accent rounded" />
-          </div>
-       </div>
+    <div className="glass-card p-12 max-w-2xl mx-auto text-center fade-in">
+      <div className="relative w-24 h-24 mx-auto mb-8">
+        <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+        <div 
+          className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" 
+          style={{ animationDuration: '1.5s' }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center font-bold text-xl text-primary">
+          {progress}%
+        </div>
+      </div>
+      <h2 className="text-2xl font-bold mb-4 text-white">Generating AI Insights</h2>
+      <p className="text-muted text-lg mb-8">{status}</p>
+      
+      <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-primary transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(99,102,241,0.6)]" 
+          style={{ width: `${progress}%` }} 
+        />
+      </div>
     </div>
   );
-}
+};
 
-function PeerBenchmarkingResult({ data, clientName, ownerName }) {
-  const [tab, setTab] = useState("table");
+const ResultsDashboard = ({ report, onRestart, formData }) => {
+  if (!report) return null;
+
+  const benchmarkingTable = report.benchmarkingTable || [];
+  const gapAnalysis = report.gapAnalysis || [];
+
+  const exportToPPTX = () => {
+    let pptx = new pptxgen();
+    
+    // Slide 1: Peer Benchmarking
+    let slide1 = pptx.addSlide();
+    slide1.addText("Peer Benchmarking Table", { x: 0.5, y: 0.5, fontSize: 24, color: "003366", bold: true });
+    
+    const headers = ["Dimension", ...(benchmarkingTable.headers || [])];
+    const rows = benchmarkingTable.rows?.map(row => [row.dimension, ...row.values]) || [];
+    
+    slide1.addTable([headers, ...rows], { 
+      x: 0.5, y: 1.2, w: 9, 
+      fontSize: 8, 
+      border: { pt: 1, color: "CCCCCC" },
+      fill: { color: "F8FAFC" },
+      autoPage: true
+    });
+
+    // Slide 2: Gap Analysis
+    let slide2 = pptx.addSlide();
+    slide2.addText("Gap Analysis & Opportunity Map", { x: 0.5, y: 0.5, fontSize: 24, color: "003366", bold: true });
+    
+    const gapHeaders = ["Dimension", "Peers Position", "Target Position", "Status", "Solution Fit"];
+    const gapRows = gapAnalysis.map(item => [
+      item.dimension, 
+      item.peerState, 
+      item.targetState, 
+      item.severity, 
+      `${item.solution.name}: ${item.solution.proofPoint}`
+    ]);
+
+    slide2.addTable([gapHeaders, ...gapRows], { 
+      x: 0.5, y: 1.2, w: 9, 
+      fontSize: 8, 
+      border: { pt: 1, color: "CCCCCC" },
+      fill: { color: "F8FAFC" }
+    });
+
+    pptx.writeFile({ fileName: `RefractOne_Insights_${formData.targetAccount}.pptx` });
+  };
 
   return (
-    <div className="bg-surface border rounded-[40px] p-12 shadow-2xl animate-in fade-in">
-      <div className="flex flex-col md:flex-row justify-between gap-8 mb-12 pb-12 border-b">
+    <div className="max-w-6xl mx-auto space-y-12 fade-in">
+      <div className="flex justify-between items-center bg-white/5 border border-white/10 p-6 rounded-2xl">
         <div>
-          <span className="px-3 py-1 bg-accent text-cyan text-[10px] font-black rounded-full uppercase tracking-wider mb-4 inline-block">Analysis Complete</span>
-          <h2 className="text-4xl font-black text-white tracking-tighter mb-2">Benchmark: {clientName}</h2>
-          <p className="text-muted italic">Strategic comparison generated for {ownerName}.</p>
+          <h1 className="text-3xl font-extrabold text-white">Strategic Insights Dashboard</h1>
+          <p className="text-muted mt-1">Actionable intelligence for account planning and pursuing</p>
         </div>
         <div className="flex gap-4">
-           <div className="bg-deep p-4 rounded-2xl border text-center min-w-[100px]">
-             <p className="text-[10px] font-black text-muted uppercase mb-1">Peers</p>
-             <p className="text-xl font-black text-white">{data.peers?.length || 0}</p>
-           </div>
-           <div className="bg-deep p-4 rounded-2xl border text-center min-w-[100px]">
-             <p className="text-[10px] font-black text-muted uppercase mb-1">Confidence</p>
-             <p className="text-xl font-black text-success">High</p>
-           </div>
+          <button 
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 font-semibold hover:bg-green-500/20 transition-all"
+            onClick={exportToPPTX}
+          >
+            <Download size={20} /> Export PPTX
+          </button>
+          <button 
+            className="px-6 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors"
+            onClick={onRestart}
+          >
+            New Project
+          </button>
         </div>
       </div>
 
-      <div className="flex gap-2 mb-8">
-        {["table", "capabilities", "opportunities"].map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tab === t ? "bg-accent text-cyan border" : "text-muted"}`}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === "table" && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b">
-                <th className="py-4 text-[10px] font-black text-muted uppercase">Dimension</th>
-                <th className="py-4 text-cyan text-sm font-black">{clientName}</th>
-                {data.peers?.map((p, i) => <th key={i} className="py-4 text-white text-sm font-black">{p.name}</th>)}
-              </tr>
-            </thead>
-            <tbody className="text-xs">
-              {["itSpend", "trend", "bizPriority", "itPriority", "strength", "gap"].map((key) => (
-                <tr key={key} className="border-b border-[#ffffff05]">
-                  <td className="py-4 font-bold text-muted uppercase tracking-tighter">{key.replace(/([A-Z])/g, ' $1')}</td>
-                  <td className="py-4 text-white font-bold">{key === 'strength' ? 'Strong' : 'Analysis...'}</td>
-                  {data.peers?.map((p, i) => (
-                    <td key={i} className="py-4 text-muted">{p[key]}</td>
+      <section>
+        <div className="flex items-center gap-3 mb-6">
+          <Layers className="text-primary" />
+          <h2 className="text-2xl font-bold text-white">Peer Benchmarking</h2>
+        </div>
+        <div className="glass-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 bg-white/5">
+                  <th className="p-4 text-sm font-bold text-muted uppercase tracking-wider">Dimension</th>
+                  {benchmarkingTable.headers?.map((header, idx) => (
+                    <th key={idx} className="p-4 text-sm font-bold text-white uppercase tracking-wider">{header}</th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-white/10">
+                {benchmarkingTable.rows?.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-white/5 transition-colors">
+                    <td className="p-4 font-semibold text-primary/90">{row.dimension}</td>
+                    {row.values.map((val, vIdx) => (
+                      <td key={vIdx} className="p-4 text-sm text-slate-300 leading-relaxed min-w-[200px]">{val}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
+      </section>
 
-      {tab === "capabilities" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {data.ownerCapabilities?.map((cap, i) => (
-            <div key={i} className="bg-deep border rounded-2xl p-6">
-              <Activity size={20} className="text-cyan mb-4" />
-              <h4 className="font-black text-white text-lg mb-2">{cap}</h4>
-              <p className="text-xs text-muted leading-relaxed">Strategic capability mapped to identified market gaps.</p>
+      <section>
+        <div className="flex items-center gap-3 mb-6">
+          <Target className="text-primary" />
+          <h2 className="text-2xl font-bold text-white">Gap Analysis & Opportunity Map</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-6">
+          {gapAnalysis.map((item, idx) => (
+            <div key={idx} className="glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary/30 transition-all group">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`
+                    w-3 h-3 rounded-full shadow-[0_0_8px]
+                    ${item.severity === 'RED' ? 'bg-red-500 shadow-red-500/50' : ''}
+                    ${item.severity === 'AMBER' ? 'bg-amber-500 shadow-amber-500/50' : ''}
+                    ${item.severity === 'GREEN' ? 'bg-green-500 shadow-green-500/50' : ''}
+                  `} />
+                  <h3 className="text-xl font-bold text-white">{item.dimension}</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Peers' Position</h4>
+                    <p className="text-sm text-slate-300 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{item.peerState}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Target Position</h4>
+                    <p className="text-sm text-slate-300 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{item.targetState}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="w-full md:w-1/3 bg-primary/10 border-l border-primary/20 p-6 rounded-r-xl group-hover:bg-primary/15 transition-all">
+                <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Solution Fit</h4>
+                <div className="p-4 bg-primary/20 rounded-xl border border-primary/30">
+                  <p className="font-bold text-white mb-1">{item.solution.name}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed italic">{item.solution.proofPoint}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
-      )}
-
-      {tab === "opportunities" && (
-        <div className="space-y-4">
-           {data.opportunities?.map((opp, i) => (
-             <div key={i} className="bg-deep border rounded-2xl p-6 border-l-4" style={{ borderLeftColor: opp.color }}>
-                <p className="text-[10px] font-black text-muted uppercase mb-1">{opp.priority} Priority</p>
-                <h4 className="font-black text-white text-xl tracking-tight mb-2">{opp.signal}</h4>
-                <p className="text-sm text-muted">→ {opp.action}</p>
-             </div>
-           ))}
-        </div>
-      )}
+      </section>
     </div>
   );
-}
+};
+
+// --- Main App Component ---
+
+const App = () => {
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    sellingOrg: '',
+    targetAccount: '',
+    industry: '',
+    focusArea: '',
+    solutionPortfolio: '',
+    peers: []
+  });
+  const [reportData, setReportData] = useState(null);
+
+  const updateFormData = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleRestart = () => {
+    setStep(1);
+    setReportData(null);
+    setFormData({
+      sellingOrg: '',
+      targetAccount: '',
+      industry: '',
+      focusArea: '',
+      solutionPortfolio: '',
+      peers: []
+    });
+  };
+
+  return (
+    <div className="min-h-screen p-6 md:p-12 max-w-[1400px] mx-auto">
+      {/* Header */}
+      <header className="flex justify-between items-center mb-16">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <Layers className="text-white" size={28} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
+              RefractOne
+            </h1>
+            <p className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase">AI Sales Insights</p>
+          </div>
+        </div>
+        <div className="hidden md:flex items-center gap-6">
+          <span className="text-xs font-medium text-white/40 uppercase tracking-widest">Powered by Parallel.AI & Claude 3.5</span>
+          <div className="w-px h-4 bg-white/10" />
+          <div className="text-xs font-bold px-3 py-1 bg-white/5 border border-white/10 rounded-full text-white/70">
+            Vercel Managed
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main>
+        {step < 4 && <StepIndicator currentStep={step} />}
+
+        {step === 1 && (
+          <SetupForm 
+            data={formData} 
+            onChange={updateFormData} 
+            onNext={() => setStep(2)} 
+          />
+        )}
+
+        {step === 2 && (
+          <PeerSelection 
+            data={formData} 
+            onBack={() => setStep(1)}
+            onPeersSelected={(peers) => {
+              updateFormData('peers', peers);
+              setStep(3);
+            }} 
+          />
+        )}
+
+        {step === 3 && (
+          <ResearchPhase 
+            data={formData} 
+            onComplete={(report) => {
+              setReportData(report);
+              setStep(4);
+            }} 
+          />
+        )}
+
+        {step === 4 && (
+          <ResultsDashboard 
+            report={reportData} 
+            onRestart={handleRestart}
+            formData={formData}
+          />
+        )}
+      </main>
+
+      {/* Footer Decoration */}
+      <div className="fixed bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent pointer-events-none" />
+    </div>
+  );
+};
+
+export default App;
