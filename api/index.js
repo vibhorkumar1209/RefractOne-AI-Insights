@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const { findCompetitors, researchPeer } = require('../server/services/parallel');
-const { synthesizeResearch, extractCompetitors } = require('../server/services/claude');
+const { findCompetitors, researchPeer } = require('./services/parallel');
+const { synthesizeResearch, extractCompetitors } = require('./services/claude');
 
 dotenv.config();
 
