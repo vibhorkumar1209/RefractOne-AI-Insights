@@ -8,23 +8,24 @@ const anthropic = new Anthropic({
 
 async function tryClaudeModels(system, user, max_tokens) {
   const models = [
-    "claude-3-5-sonnet-20241022",
-    "claude-3-5-sonnet-20240620",
-    "claude-3-haiku-20240307"
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "claude-opus-4-6"
   ];
 
   for (const model of models) {
     try {
-      console.log(`Trying Claude model: ${model}`);
+      console.log(`[AI] Trying Claude: ${model}`);
       const response = await anthropic.messages.create({
         model: model,
         max_tokens: max_tokens,
         system: system,
         messages: [{ role: "user", content: user }],
-      }, { timeout: 15000 }); // 15s timeout
+      }, { timeout: 10000 }); // 10s timeout
+      console.log(`[AI] Claude ${model} succeeded`);
       return response.content[0].text;
     } catch (e) {
-      console.warn(`Claude ${model} failed:`, e.message);
+      console.warn(`[AI] Claude ${model} failed:`, e.message);
       if (e.message.toLowerCase().includes('credit') || e.message.toLowerCase().includes('balance')) throw e;
     }
   }
@@ -33,91 +34,48 @@ async function tryClaudeModels(system, user, max_tokens) {
 
 const synthesizeResearch = async (researchData, templateData) => {
   const { sellingOrg, targetAccount, industry, focusArea, solutionPortfolio } = templateData;
-  
-  const systemPrompt = `You are a senior B2B sales intelligence analyst. Your task is to synthesize research data into a Peer Benchmarking and Gap Analysis report.
-  The goal is to create content for a 2-slide PowerPoint presentation as defined in the master prompt.`;
+  console.log(`[AI] Starting synthesis for ${targetAccount}`);
+
+  const systemPrompt = `You are a senior B2B sales intelligence analyst. Synthesize research into Peer Benchmarking and Gap Analysis JSON.`;
 
   const userPrompt = `
-  === CONTEXT ===
-  Target Account: ${targetAccount}
-  Selling Organization: ${sellingOrg}
-  Industry: ${industry}
-  Focus Area: ${focusArea}
-  Solution Portfolio: ${solutionPortfolio}
-
-  === RESEARCH DATA ===
-  ${JSON.stringify(researchData, null, 2)}
-
-  === TASK ===
-  1. Synthesize the research data into a structured response.
-  2. Provide specific content for:
-     - Slide 1: Peer Benchmarking Table (Target + 3-5 peers)
-     - Slide 2: Gap Analysis & Opportunity Map (connecting gaps to ${sellingOrg}'s solutions)
-  
-  Ensure all claims have source citations from the research data. 
-  
-  REQUIRED JSON STRUCTURE:
-  {
-    "benchmarkingTable": {
-      "headers": ["Peer 1", "Peer 2", ...],
-      "rows": [
-        { "dimension": "ERP Stack", "values": ["Peer 1 data", "Peer 2 data", ...] },
-        ...
-      ]
-    },
-    "gapAnalysis": [
-      {
-        "dimension": "AI Investments",
-        "peerState": "...",
-        "targetState": "...",
-        "severity": "RED" | "AMBER" | "GREEN",
-        "solution": { "name": "...", "proofPoint": "..." }
-      },
-      ...
-    ]
-  }
-  
-  Output ONLY valid JSON. EXACT keys.`;
+  Context: Target ${targetAccount}, Seller ${sellingOrg}, Focus ${focusArea}
+  Research: ${JSON.stringify(researchData).substring(0, 40000)}
+  Required JSON: { benchmarkingTable: { headers: [], rows: [{ dimension, values: [] }] }, gapAnalysis: [{ dimension, peerState, targetState, severity, solution: { name, proofPoint } }] }
+  Output ONLY JSON.`;
 
   try {
     return await tryClaudeModels(systemPrompt, userPrompt, 4000);
   } catch (error) {
-    console.warn('Claude synthesis failed, trying Parallel fallback:', error.message);
+    console.warn('[AI] Claude failed, trying Parallel fallback');
     
-    const truncatedResearch = {};
-    for (const peer in researchData) {
-      const data = typeof researchData[peer] === 'string' ? researchData[peer] : JSON.stringify(researchData[peer]);
-      truncatedResearch[peer] = data.substring(0, 2000); 
-    }
+    // Aggressive truncation for fallback
+    const truncated = JSON.stringify(researchData).substring(0, 15000);
+    let lastPerr = '';
 
-    const fallbackUserPrompt = `Compare ${targetAccount} with selected peers: ${Object.keys(researchData).join(', ')}. Target Focus: ${focusArea}. Research Summary: ${JSON.stringify(truncatedResearch)}. Output Benchmarking Table and Gap Analysis JSON.`;
-
-    let lastParallelError = '';
-    for (const model of ['core', 'base', 'speed']) {
+    for (const model of ['core', 'base']) {
       try {
-        console.log(`Trying synthesis with Parallel model: ${model}`);
+        console.log(`[AI] Trying Parallel: ${model}`);
         const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
           model: model,
-          messages: [
-            { role: 'user', content: `${systemPrompt}\n\n${fallbackUserPrompt}` }
-          ]
+          messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}\n\nResearch Data: ${truncated}` }]
         }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.PARALLEL_API_KEY
-          },
-          timeout: 25000 
+          headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.PARALLEL_API_KEY },
+          timeout: 25000 // Increased to 25s
         });
         
         const content = response.data.choices[0].message.content;
-        if (content && content.includes('{')) return content;
-      } catch (parallelError) {
-        lastParallelError = parallelError.response?.data?.error?.message || parallelError.response?.data?.message || parallelError.message;
-        console.warn(`Parallel ${model} failed:`, lastParallelError);
+        if (content && content.includes('{')) {
+          console.log(`[AI] Parallel ${model} succeeded`);
+          return content;
+        }
+      } catch (perr) {
+        lastPerr = perr.response?.data?.error?.message || perr.message;
+        console.warn(`[AI] Parallel ${model} failed:`, lastPerr);
       }
     }
     
-    throw new Error(`Synthesis Failed. Claude: ${error.message}. Parallel: ${lastParallelError}`);
+    throw new Error(`Synthesis Failed. Claude: ${error.message}. Parallel: ${lastPerr}`);
   }
 };
 

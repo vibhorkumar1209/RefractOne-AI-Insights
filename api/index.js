@@ -60,6 +60,7 @@ app.post('/api/synthesize', async (req, res) => {
     return res.status(400).json({ error: 'Research data and template data are required.' });
   }
 
+  console.log(`[API] /api/synthesize called for ${templateData.targetAccount}`);
   try {
     const rawSynthesis = await synthesizeResearch(researchData, templateData);
     let synthesis = rawSynthesis;
