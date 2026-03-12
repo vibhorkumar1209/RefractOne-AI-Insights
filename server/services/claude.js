@@ -10,24 +10,23 @@ async function tryClaudeModels(system, user, max_tokens) {
   const models = [
     "claude-3-5-sonnet-20241022",
     "claude-3-5-sonnet-20240620",
-    "claude-3-sonnet-20240229",
-    "claude-3-opus-20240229",
     "claude-3-haiku-20240307"
   ];
 
   for (const model of models) {
     try {
       console.log(`Trying Claude model: ${model}`);
+      // Use a controller to abort if it takes too long
       const response = await anthropic.messages.create({
         model: model,
         max_tokens: max_tokens,
         system: system,
         messages: [{ role: "user", content: user }],
-      });
+      }, { timeout: 25000 }); // 25s limit for Claude attempts
       return response.content[0].text;
     } catch (e) {
       console.warn(`Claude ${model} failed:`, e.message);
-      if (e.message.includes('credit') || e.message.includes('balance')) throw e;
+      if (e.message.includes('credit') || e.message.includes('balance') || e.message.includes('overloaded')) throw e;
     }
   }
   throw new Error('All Claude models failed');
@@ -87,12 +86,13 @@ const synthesizeResearch = async (researchData, templateData) => {
   try {
     return await tryClaudeModels(systemPrompt, userPrompt, 4000);
   } catch (error) {
-    console.warn('All Claude models failed, falling back to Parallel Chat:', error.message);
+    console.warn('Claude synthesis failed, trying Parallel fallback (base/speed):', error.message);
     
+    // Aggressive truncation for fallback
     const truncatedResearch = {};
     for (const peer in researchData) {
       const data = typeof researchData[peer] === 'string' ? researchData[peer] : JSON.stringify(researchData[peer]);
-      truncatedResearch[peer] = data.substring(0, 5000);
+      truncatedResearch[peer] = data.substring(0, 3000); 
     }
 
     const fallbackUserPrompt = `
@@ -104,7 +104,8 @@ const synthesizeResearch = async (researchData, templateData) => {
       Synthesize into Benchmarking Table and Gap Analysis JSON.
     `;
 
-    for (const model of ['base', 'core', 'speed']) {
+    // Try fewer models with shorter timeouts to stay under 60s total
+    for (const model of ['base', 'speed']) {
       try {
         console.log(`Trying synthesis with Parallel model: ${model}`);
         const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
@@ -117,7 +118,7 @@ const synthesizeResearch = async (researchData, templateData) => {
             'Content-Type': 'application/json',
             'x-api-key': process.env.PARALLEL_API_KEY
           },
-          timeout: 45000
+          timeout: 20000 // 20s timeout per fallback attempt
         });
         
         const content = response.data.choices[0].message.content;

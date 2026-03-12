@@ -401,7 +401,18 @@ const ResearchPhase = ({ data, onComplete }) => {
         onComplete(synthesisRes.data.synthesis);
       } catch (err) {
         console.error('Process error:', err);
-        const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
+        const data = err.response?.data;
+        let errorMsg = 'An unknown error occurred.';
+        
+        if (data) {
+          if (typeof data.details === 'string') errorMsg = data.details;
+          else if (typeof data.error === 'string') errorMsg = data.error;
+          else if (typeof data.error === 'object' && data.error?.message) errorMsg = data.error.message;
+          else if (typeof data === 'object') errorMsg = JSON.stringify(data);
+        } else {
+          errorMsg = err.message;
+        }
+        
         setStatus(`Error: ${errorMsg}`);
       }
     };
