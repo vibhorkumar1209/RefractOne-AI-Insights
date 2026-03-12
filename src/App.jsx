@@ -437,28 +437,43 @@ const ResultsDashboard = ({ report, onRestart, formData }) => {
   if (!report) return null;
 
   // Ultra-resilient normalization
-  const bTable = report.benchmarkingTable || report.benchmarking_table || report.table || {};
-  const gAnalysis = report.gapAnalysis || report.gap_analysis || report.gaps || [];
+  const bTable = report.benchmarking_table || report.benchmarkingTable || report.table || {};
+  const gAnalysis = report.gap_analysis || report.gapAnalysis || report.gaps || [];
   
-  const benchmarkingTable = {
-    headers: bTable.headers || bTable.columns || bTable.head || [],
-    rows: (bTable.rows || bTable.data || bTable.body || []).map(row => {
+  let benchmarkingTable = { headers: [], rows: [] };
+
+  if (Array.isArray(bTable)) {
+    // Row-as-object format: [{"category": "..", "peer1": ".."}, ...]
+    const firstRow = bTable[0] || {};
+    const keys = Object.keys(firstRow);
+    const dimKey = keys.find(k => ['category', 'dimension', 'feature', 'metric'].includes(k.toLowerCase())) || keys[0];
+    const valKeys = keys.filter(k => k !== dimKey);
+    
+    benchmarkingTable.headers = valKeys.map(k => k.charAt(0).toUpperCase() + k.slice(1).replace(/_/g, ' '));
+    benchmarkingTable.rows = bTable.map(row => ({
+      dimension: row[dimKey] || 'Metric',
+      values: valKeys.map(k => row[k])
+    }));
+  } else {
+    // Object-with-headers-and-rows format
+    benchmarkingTable.headers = bTable.headers || bTable.columns || bTable.head || [];
+    benchmarkingTable.rows = (bTable.rows || bTable.data || bTable.body || []).map(row => {
       if (Array.isArray(row)) return { dimension: row[0], values: row.slice(1) };
       return {
         dimension: row.dimension || row.category || row.feature || row.metric || 'Metric',
         values: row.values || row.data || Object.values(row).filter(v => typeof v === 'string' && v !== (row.dimension || row.category || row.feature || row.metric || 'Metric'))
       };
-    })
-  };
+    });
+  }
 
   const gapAnalysis = (Array.isArray(gAnalysis) ? gAnalysis : []).map(item => ({
-    dimension: item.dimension || item.category || item.gap || 'Key Strategic Gap',
-    peerState: item.peerState || item.peer_state || item.market_benchmark || 'N/A',
-    targetState: item.targetState || item.target_state || item.target_status || 'N/A',
+    dimension: item.dimension || item.category || item.gap || item.title || 'Key Strategic Gap',
+    peerState: item.peerState || item.peer_state || item.market_benchmark || item.description || item.value || 'N/A',
+    targetState: item.targetState || item.target_state || item.target_status || item.current_state || 'N/A',
     severity: item.severity || item.priority || 'AMBER',
     solution: {
       name: item.solution?.name || item.solution_name || item.recommendation || 'Strategic Solution',
-      proofPoint: item.solution?.proofPoint || item.solution?.proof_point || item.proof_point || 'Verified industry capability.'
+      proofPoint: item.solution?.proofPoint || item.solution?.proof_point || item.proof_point || item.evidence || 'Verified industry capability.'
     }
   }));
 
