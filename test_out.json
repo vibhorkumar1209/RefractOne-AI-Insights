@@ -1,0 +1,61 @@
+[dotenv@17.3.1] injecting env (1) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+Testing Parallel Synthesis with model: core...
+SUCCESS: {
+  "id": "chatcmpl_7f664366-184e-4fa7-9871-566c64188a93",
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "content": "Infosys and TCS are India’s largest IT services firms with similar global service portfolios (digital, cloud, AI, consulting and outsourcing) but differ in scale and market positioning: TCS is the larger, more diversified market leader with higher revenue, market cap and broader client footprint, while Infosys is a faster‑growing challenger that has recently narrowed the gap by showing stronger near‑term growth guidance and stronger momentum in AI‑led projects and client wins; both report robust profitability and enterprise‑grade service offerings, but TCS typically rates slightly higher on some enterprise customer‑review indices and benefits from larger scale and balance‑sheet strength, whereas Infosys is seen as more agile on strategic initiatives and has been raising revenue forecasts amid improving demand.",
+        "refusal": null,
+        "role": "assistant",
+        "annotations": null,
+        "audio": null,
+        "function_call": null,
+        "tool_calls": null
+      }
+    }
+  ],
+  "created": 1773342821,
+  "model": "core",
+  "object": "chat.completion",
+  "service_tier": null,
+  "system_fingerprint": null,
+  "usage": null,
+  "basis": [
+    {
+      "field": "answer",
+      "citations": [
+        {
+          "title": "Infosys raises revenue view, sparks hopes of Indian IT turnaround | Reuters",
+          "url": "https://www.reuters.com/world/india/indias-infosys-beats-q3-revenue-view-ups-annual-forecast-range-2026-01-14/",
+          "excerpts": [
+            "\".\nFor the fiscal year ending March 2026, Infosys said it expects revenue growth of 3% to 3.5%",
+            "Three brokerages had expected the company to narrow the range to 2.5%-3%.",
+            "Clients who had cut discretionary spending amid tariff-related uncertainty are now funding AI projects."
+          ]
+        },
+        {
+          "title": "Q3 FY 26 Financial Results",
+          "url": "https://www.infosys.com/investors/reports-filings/quarterly-results/2025-2026/q3/documents/q3-and-9m-fy26-financial-results-auditorsreports.pdf",
+          "excerpts": [
+            "Jan 14, 2026 — Statement of Audited results of Infosys Limited for the quarter and nine months ended December 31, 2025"
+          ]
+        },
+        {
+          "title": "Infosys vs Tata Consultancy Services (TCS) 2026 | Gartner Peer Insights",
+          "url": "https://www.gartner.com/reviews/market/sap-application-services-worldwide/compare/infosys-vs-tata-consultancy-services-tcs",
+          "excerpts": [
+            "Infosys has a rating of 3.9 stars with 14 reviews. Tata Consultancy Services (TCS) has a rating of 4 stars with 22 reviews.",
+            ". See side-by-side comparisons of product capabilities, customer experience, pros and cons,"
+          ]
+        }
+      ],
+      "reasoning": "The paragraph was compiled by synthesizing information from the Reuters report on Infosys’s revised revenue guidance, the audited Q3 FY26 financial results showing Infosys’s revenue growth, and the Gartner comparison indicating a higher customer‑review rating for TCS. These sources together support statements about growth expectations, scale, and customer perception, allowing a concise side‑by‑side description.",
+      "confidence": "medium"
+    }
+  ],
+  "interaction_id": "chatcmpl_7f664366-184e-4fa7-9871-566c64188a93"
+}

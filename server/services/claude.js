@@ -67,24 +67,50 @@ const synthesizeResearch = async (researchData, templateData) => {
 
     return response.content[0].text;
   } catch (error) {
-    console.warn('Claude Synthesis Error (falling back to Parallel Chat - core):', error.message);
-    try {
-      const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
-        model: 'core',
-        messages: [
-          { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
-        ]
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.PARALLEL_API_KEY
-        }
-      });
-      return response.data.choices[0].message.content;
-    } catch (parallelError) {
-      console.error('Total Synthesis Failure:', parallelError.message);
-      throw error;
+    console.warn('Claude Synthesis Error (falling back to Parallel Chat - base):', error.message);
+    
+    // Prepare truncated research data
+    const truncatedResearch = {};
+    for (const peer in researchData) {
+      const data = typeof researchData[peer] === 'string' ? researchData[peer] : JSON.stringify(researchData[peer]);
+      truncatedResearch[peer] = data.substring(0, 5000); // More aggressive truncation for chat models
     }
+
+    const fallbackUserPrompt = `
+      === CONTEXT ===
+      Target: ${targetAccount}, Seller: ${sellingOrg}, Focus: ${focusArea}
+      === RESEARCH SUMMARY ===
+      ${JSON.stringify(truncatedResearch, null, 2)}
+      === TASK ===
+      Synthesize into Benchmarking Table and Gap Analysis JSON.
+    `;
+
+    // Try multiple models in sequence
+    for (const model of ['base', 'core', 'speed']) {
+      try {
+        console.log(`Trying synthesis with Parallel model: ${model}`);
+        const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
+          model: model,
+          messages: [
+            { role: 'user', content: `${systemPrompt}\n\n${fallbackUserPrompt}` }
+          ]
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.PARALLEL_API_KEY
+          },
+          timeout: 45000 // 45s timeout per attempt
+        });
+        
+        const content = response.data.choices[0].message.content;
+        if (content && content.includes('{')) return content;
+      } catch (parallelError) {
+        console.warn(`Parallel ${model} failed:`, parallelError.message);
+      }
+    }
+    
+    console.error('Total Synthesis Failure after all fallbacks.');
+    throw error;
   }
 };
 
