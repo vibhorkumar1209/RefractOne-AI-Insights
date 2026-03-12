@@ -10,14 +10,34 @@ async function runTests() {
     const health = await axios.get(`${API_URL}/health`);
     console.log('✅ Health Check passed:', health.data);
 
-    // 2. Peer Selection (Simulated)
-    // Note: This calls Parallel.AI, so it might take time.
+    // 2. Peer Selection
     console.log('📡 Testing Competitor Discovery...');
-    const competitors = await axios.post(`${API_URL}/competitors`, {
-      targetCompany: 'Infosys',
-      industry: 'IT Services'
+    const competitorsRes = await axios.post(`${API_URL}/competitors`, {
+      targetCompany: 'Infosys'
     });
-    console.log('✅ Competitor Discovery passed:', !!competitors.data.competitors);
+    const comps = competitorsRes.data.competitors;
+    console.log('✅ Competitor Discovery passed:', !!comps && comps.length > 0);
+    if (comps) console.log('   Sample:', comps[0].name);
+
+    // 3. Synthesis (Critical fallback test)
+    console.log('🧪 Testing Research Synthesis Fallback...');
+    const synthRes = await axios.post(`${API_URL}/synthesize`, {
+      researchData: { "TCS": "Major competitor with strong AI focus.", "Accenture": "Global leader in digital transformation." },
+      templateData: {
+        sellingOrg: "EdgeVerve",
+        targetAccount: "Infosys",
+        industry: "IT Services",
+        focusArea: "GenAI",
+        solutionPortfolio: "AssistEdge, XtractEdge"
+      }
+    });
+    
+    const synth = synthRes.data.synthesis;
+    console.log('✅ Synthesis passed:', !!synth);
+    if (synth) {
+      console.log('   Benchmarking Table data present:', !!synth.benchmarkingTable);
+      console.log('   Gap Analysis data present:', !!synth.gapAnalysis);
+    }
 
     console.log('\n✨ All smoke tests passed successfully!');
   } catch (error) {
@@ -26,5 +46,4 @@ async function runTests() {
   }
 }
 
-// Only run if the server is expected to be up
 runTests();

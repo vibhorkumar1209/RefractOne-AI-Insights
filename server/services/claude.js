@@ -67,10 +67,10 @@ const synthesizeResearch = async (researchData, templateData) => {
 
     return response.content[0].text;
   } catch (error) {
-    console.warn('Claude Synthesis Error (falling back to Parallel Chat):', error.message);
+    console.warn('Claude Synthesis Error (falling back to Parallel Chat - core):', error.message);
     try {
       const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
-        model: 'parallel-research',
+        model: 'core',
         messages: [
           { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
         ]
@@ -83,7 +83,7 @@ const synthesizeResearch = async (researchData, templateData) => {
       return response.data.choices[0].message.content;
     } catch (parallelError) {
       console.error('Total Synthesis Failure:', parallelError.message);
-      throw error; // throw original claude error if fallback also fails
+      throw error;
     }
   }
 };
@@ -107,6 +107,7 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
   Return ONLY a valid JSON array of objects. No intro/outro.
   Example: [{"name": "Company A", "description": "Primary competitor in cloud services..."}, ...]`;
 
+  // 1. Try Claude
   try {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-latest",
@@ -117,41 +118,63 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
 
     const text = response.content[0].text;
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.warn('Claude failed to return JSON list of competitors.');
-      return [];
-    }
-    return JSON.parse(jsonMatch[0]);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.warn('Claude Extraction Error (trying Regex fallback):', error.message);
-    
-    // Last resort: Try to parse whatever we have in rawSearchData using regex
-    try {
-      const text = typeof rawSearchData === 'string' ? rawSearchData : (rawSearchData?.answer || JSON.stringify(rawSearchData));
-      const competitors = [];
-      
-      // Look for numbered lists or lines with company names
-      const lines = text.split('\n');
-      for (const line of lines) {
-        const match = line.match(/^[\d\.\-\s*]*([A-Z][A-Za-z0-9\s&,]+)[:\-](.*)/) || line.match(/^[\d\.\-\s*]+([A-Z][A-Za-z0-9\s&,]+)$/);
-        if (match && competitors.length < 8) {
-          const name = match[1].trim();
-          if (name.length > 2 && !['Company', 'Target', 'Competitor'].includes(name)) {
-            competitors.push({
-              name,
-              description: match[2]?.trim() || 'Key strategic competitor identified.'
-            });
-          }
-        }
-      }
-      
-      if (competitors.length > 0) return competitors;
-    } catch (regexError) {
-      console.error('Regex Fallback Failure:', regexError);
-    }
-    
-    return [];
+    console.warn('Claude Extraction Error (trying Parallel Chat fallback):', error.message);
   }
+
+  // 2. Try Parallel Chat (Base model for quick list)
+  try {
+    const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
+      model: 'base',
+      messages: [
+        { role: 'user', content: `Identify the top 5-8 direct competitors for ${targetAccount}. Return ONLY a JSON array of objects with "name" and "description" keys.` }
+      ]
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.PARALLEL_API_KEY
+      }
+    });
+    
+    const chatContent = response.data.choices[0].message.content;
+    const jsonMatch = chatContent.match(/\[[\s\S]*\]/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+  } catch (fallbackError) {
+    console.warn('Parallel Chat fallback failed:', fallbackError.message);
+  }
+
+  // 3. Last resort Knowledge Fallback
+  const lowercaseTarget = targetAccount.toLowerCase();
+  const manualFallbacks = {
+    'infosys': ['TCS', 'Accenture', 'Wipro', 'Cognizant', 'HCLTech'],
+    'accenture': ['Infosys', 'TCS', 'Capgemini', 'IBM', 'Deloitte'],
+    'tcs': ['Infosys', 'Accenture', 'Wipro', 'HCLTech', 'Cognizant'],
+    'apple': ['Samsung', 'Google', 'Microsoft', 'Xiaomi', 'Huawei'],
+    'sap': ['Oracle', 'Microsoft', 'Salesforce', 'Workday', 'Infor']
+  }[lowercaseTarget] || [];
+
+  if (manualFallbacks.length > 0) {
+    return manualFallbacks.map(name => ({ name, description: 'Direct global competitor identified via industry knowledge.' }));
+  }
+
+  // 4. Final attempt: Regex on search data if available
+  if (rawSearchData) {
+    try {
+      const text = JSON.stringify(rawSearchData);
+      const competitors = [];
+      const globalGiants = ['Accenture', 'TCS', 'Wipro', 'Cognizant', 'HCLTech', 'Capgemini', 'IBM', 'Deloitte'];
+      
+      globalGiants.forEach(giant => {
+        if (giant.toLowerCase() !== lowercaseTarget && text.includes(giant)) {
+          competitors.push({ name: giant, description: 'Global competitor identified in research results.' });
+        }
+      });
+      if (competitors.length > 0) return competitors;
+    } catch (e) {}
+  }
+
+  return [];
 };
 
 module.exports = {

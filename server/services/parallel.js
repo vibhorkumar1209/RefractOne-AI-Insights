@@ -43,7 +43,7 @@ const findCompetitors = async (targetCompany) => {
     // Fallback to Parallel Chat
     try {
       const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
-        model: 'parallel-research',
+        model: 'core',
         messages: [{ 
           role: 'user', 
           content: `List the top 8 direct competitors for ${targetCompany}. Format as a JSON array of objects with "name" and "description".` 
