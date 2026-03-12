@@ -436,22 +436,28 @@ const ResearchPhase = ({ data, onComplete }) => {
 const ResultsDashboard = ({ report, onRestart, formData }) => {
   if (!report) return null;
 
-  // Normalize keys to support both camelCase and snake_case from AI
-  const bTable = report.benchmarkingTable || report.benchmarking_table || {};
-  const gAnalysis = report.gapAnalysis || report.gap_analysis || [];
+  // Ultra-resilient normalization
+  const bTable = report.benchmarkingTable || report.benchmarking_table || report.table || {};
+  const gAnalysis = report.gapAnalysis || report.gap_analysis || report.gaps || [];
   
   const benchmarkingTable = {
-    headers: bTable.headers || [],
-    rows: bTable.rows || []
+    headers: bTable.headers || bTable.columns || bTable.head || [],
+    rows: (bTable.rows || bTable.data || bTable.body || []).map(row => {
+      if (Array.isArray(row)) return { dimension: row[0], values: row.slice(1) };
+      return {
+        dimension: row.dimension || row.category || row.feature || row.metric || 'Metric',
+        values: row.values || row.data || Object.values(row).filter(v => typeof v === 'string' && v !== (row.dimension || row.category || row.feature || row.metric || 'Metric'))
+      };
+    })
   };
 
-  const gapAnalysis = gAnalysis.map(item => ({
-    dimension: item.dimension || 'Key Strategic Gap',
-    peerState: item.peerState || item.peer_state || 'N/A',
-    targetState: item.targetState || item.target_state || 'N/A',
-    severity: item.severity || 'AMBER',
+  const gapAnalysis = (Array.isArray(gAnalysis) ? gAnalysis : []).map(item => ({
+    dimension: item.dimension || item.category || item.gap || 'Key Strategic Gap',
+    peerState: item.peerState || item.peer_state || item.market_benchmark || 'N/A',
+    targetState: item.targetState || item.target_state || item.target_status || 'N/A',
+    severity: item.severity || item.priority || 'AMBER',
     solution: {
-      name: item.solution?.name || item.solution_name || 'Strategic Solution',
+      name: item.solution?.name || item.solution_name || item.recommendation || 'Strategic Solution',
       proofPoint: item.solution?.proofPoint || item.solution?.proof_point || item.proof_point || 'Verified industry capability.'
     }
   }));
