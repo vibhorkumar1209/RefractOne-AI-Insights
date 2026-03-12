@@ -8,25 +8,28 @@ const anthropic = new Anthropic({
 
 async function tryClaudeModels(system, user, max_tokens) {
   const models = [
+    "claude-3-7-sonnet-latest",
+    "claude-3-5-sonnet-latest",
     "claude-3-5-sonnet-20241022",
     "claude-3-5-sonnet-20240620",
+    "claude-3-5-haiku-latest",
     "claude-3-haiku-20240307"
   ];
 
   for (const model of models) {
     try {
       console.log(`Trying Claude model: ${model}`);
-      // Use a controller to abort if it takes too long
       const response = await anthropic.messages.create({
         model: model,
         max_tokens: max_tokens,
         system: system,
         messages: [{ role: "user", content: user }],
-      }, { timeout: 25000 }); // 25s limit for Claude attempts
+      }, { timeout: 20000 });
       return response.content[0].text;
     } catch (e) {
       console.warn(`Claude ${model} failed:`, e.message);
-      if (e.message.includes('credit') || e.message.includes('balance') || e.message.includes('overloaded')) throw e;
+      // If it's a balance issue, don't bother with other models
+      if (e.message.toLowerCase().includes('credit') || e.message.toLowerCase().includes('balance')) throw e;
     }
   }
   throw new Error('All Claude models failed');
@@ -72,40 +75,29 @@ const synthesizeResearch = async (researchData, templateData) => {
         "peerState": "...",
         "targetState": "...",
         "severity": "RED" | "AMBER" | "GREEN",
-        "solution": {
-          "name": "Your Product Name",
-          "proofPoint": "Verified case study metric or result"
-        }
+        "solution": { "name": "...", "proofPoint": "..." }
       },
       ...
     ]
   }
   
-  Output ONLY the JSON object. Use EXACTLY the keys defined above (camelCase).`;
+  Output ONLY valid JSON. EXACT keys.`;
 
   try {
     return await tryClaudeModels(systemPrompt, userPrompt, 4000);
   } catch (error) {
-    console.warn('Claude synthesis failed, trying Parallel fallback (base/speed):', error.message);
+    console.warn('Claude synthesis failed, trying Parallel fallback:', error.message);
     
-    // Aggressive truncation for fallback
     const truncatedResearch = {};
     for (const peer in researchData) {
       const data = typeof researchData[peer] === 'string' ? researchData[peer] : JSON.stringify(researchData[peer]);
-      truncatedResearch[peer] = data.substring(0, 3000); 
+      truncatedResearch[peer] = data.substring(0, 2000); 
     }
 
-    const fallbackUserPrompt = `
-      === CONTEXT ===
-      Target: ${targetAccount}, Seller: ${sellingOrg}, Focus: ${focusArea}
-      === RESEARCH SUMMARY ===
-      ${JSON.stringify(truncatedResearch, null, 2)}
-      === TASK ===
-      Synthesize into Benchmarking Table and Gap Analysis JSON.
-    `;
+    const fallbackUserPrompt = `Compare ${targetAccount} with selected peers: ${Object.keys(researchData).join(', ')}. Target Focus: ${focusArea}. Research Summary: ${JSON.stringify(truncatedResearch)}. Output Benchmarking Table and Gap Analysis JSON.`;
 
-    // Try fewer models with shorter timeouts to stay under 60s total
-    for (const model of ['base', 'speed']) {
+    let lastParallelError = '';
+    for (const model of ['core', 'base', 'speed']) {
       try {
         console.log(`Trying synthesis with Parallel model: ${model}`);
         const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
@@ -118,17 +110,18 @@ const synthesizeResearch = async (researchData, templateData) => {
             'Content-Type': 'application/json',
             'x-api-key': process.env.PARALLEL_API_KEY
           },
-          timeout: 20000 // 20s timeout per fallback attempt
+          timeout: 25000 
         });
         
         const content = response.data.choices[0].message.content;
         if (content && content.includes('{')) return content;
       } catch (parallelError) {
-        console.warn(`Parallel ${model} failed:`, parallelError.message);
+        lastParallelError = parallelError.response?.data?.error?.message || parallelError.response?.data?.message || parallelError.message;
+        console.warn(`Parallel ${model} failed:`, lastParallelError);
       }
     }
     
-    throw error;
+    throw new Error(`Synthesis Failed. Claude: ${error.message}. Parallel: ${lastParallelError}`);
   }
 };
 
