@@ -373,7 +373,11 @@ const ResearchPhase = ({ data, onComplete }) => {
               targetAccount: data.targetAccount,
               focusArea: data.focusArea
             });
-            researchData[peer] = res.data.result;
+            // Truncate to avoid 413 Payload Too Large
+            const resultStr = typeof res.data.result === 'string' 
+              ? res.data.result 
+              : JSON.stringify(res.data.result);
+            researchData[peer] = resultStr.substring(0, 15000); 
           } catch (err) {
             console.error(`Error researching ${peer}:`, err);
             researchData[peer] = "Information not available for this peer.";
