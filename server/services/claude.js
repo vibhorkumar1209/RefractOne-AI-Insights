@@ -82,7 +82,7 @@ const synthesizeResearch = async (researchData, templateData) => {
     ]
   }
   
-  Output ONLY the JSON object.`;
+  Output ONLY the JSON object. Use EXACTLY the keys defined above (camelCase).`;
 
   try {
     return await tryClaudeModels(systemPrompt, userPrompt, 4000);

@@ -436,8 +436,25 @@ const ResearchPhase = ({ data, onComplete }) => {
 const ResultsDashboard = ({ report, onRestart, formData }) => {
   if (!report) return null;
 
-  const benchmarkingTable = report.benchmarkingTable || [];
-  const gapAnalysis = report.gapAnalysis || [];
+  // Normalize keys to support both camelCase and snake_case from AI
+  const bTable = report.benchmarkingTable || report.benchmarking_table || {};
+  const gAnalysis = report.gapAnalysis || report.gap_analysis || [];
+  
+  const benchmarkingTable = {
+    headers: bTable.headers || [],
+    rows: bTable.rows || []
+  };
+
+  const gapAnalysis = gAnalysis.map(item => ({
+    dimension: item.dimension || 'Key Strategic Gap',
+    peerState: item.peerState || item.peer_state || 'N/A',
+    targetState: item.targetState || item.target_state || 'N/A',
+    severity: item.severity || 'AMBER',
+    solution: {
+      name: item.solution?.name || item.solution_name || 'Strategic Solution',
+      proofPoint: item.solution?.proofPoint || item.solution?.proof_point || item.proof_point || 'Verified industry capability.'
+    }
+  }));
 
   const exportToPPTX = () => {
     let pptx = new pptxgen();
@@ -521,7 +538,7 @@ const ResultsDashboard = ({ report, onRestart, formData }) => {
               {benchmarkingTable.rows?.map((row, idx) => (
                 <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-6 px-4 font-bold text-slate-800 bg-slate-50/30 rounded-l-xl w-64">{row.dimension}</td>
-                  {row.values.map((val, vIdx) => (
+                  {(Array.isArray(row.values) ? row.values : []).map((val, vIdx) => (
                     <td key={vIdx} className="py-6 px-4 text-sm text-slate-600 leading-relaxed min-w-[220px] text-center">{val}</td>
                   ))}
                 </tr>
