@@ -12,9 +12,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
+
 // 1. Find Competitors
 app.post('/api/competitors', async (req, res) => {
   const { targetCompany } = req.body;
+  console.log(`🔍 Received competitor discovery request for: ${targetCompany}`);
   if (!targetCompany) {
     return res.status(400).json({ error: 'Target company is required.' });
   }

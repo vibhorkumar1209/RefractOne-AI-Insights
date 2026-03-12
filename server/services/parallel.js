@@ -30,7 +30,38 @@ const parallelSearch = async (objective) => {
 
 const findCompetitors = async (targetCompany) => {
   const objective = `Research and identify the top 10 direct competitors for ${targetCompany}. For each competitor, provide their name and a one-sentence explanation of why they are a competitor.`;
-  return await parallelSearch(objective);
+  
+  try {
+    const result = await parallelSearch(objective);
+    // If result is empty or not useful, try the chat endpoint
+    if (!result || (!result.output && !result.answer && !result.results)) {
+      throw new Error('Empty search results');
+    }
+    return result;
+  } catch (error) {
+    console.warn('Parallel Research failed, trying Parallel Chat fallback...');
+    // Fallback to Parallel Chat
+    try {
+      const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
+        model: 'parallel-research',
+        messages: [{ 
+          role: 'user', 
+          content: `List the top 8 direct competitors for ${targetCompany}. Format as a JSON array of objects with "name" and "description".` 
+        }]
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': PARALLEL_API_KEY
+        }
+      });
+      
+      const chatContent = response.data.choices[0].message.content;
+      return { output: chatContent }; // extractCompetitors will handle the string
+    } catch (chatError) {
+      console.error('Parallel Chat Fallback also failed:', chatError.message);
+      throw chatError;
+    }
+  }
 };
 
 const researchPeer = async (peerName, targetAccount, focusArea) => {

@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const axios = require('axios');
 require('dotenv').config();
 
 const anthropic = new Anthropic({
@@ -58,7 +59,7 @@ const synthesizeResearch = async (researchData, templateData) => {
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
+      model: "claude-3-5-sonnet-latest",
       max_tokens: 4000,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
@@ -66,8 +67,24 @@ const synthesizeResearch = async (researchData, templateData) => {
 
     return response.content[0].text;
   } catch (error) {
-    console.error('Claude Synthesis Error:', error);
-    throw error;
+    console.warn('Claude Synthesis Error (falling back to Parallel Chat):', error.message);
+    try {
+      const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
+        model: 'parallel-research',
+        messages: [
+          { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+        ]
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.PARALLEL_API_KEY
+        }
+      });
+      return response.data.choices[0].message.content;
+    } catch (parallelError) {
+      console.error('Total Synthesis Failure:', parallelError.message);
+      throw error; // throw original claude error if fallback also fails
+    }
   }
 };
 
@@ -92,7 +109,7 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
+      model: "claude-3-5-sonnet-latest",
       max_tokens: 1500,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
@@ -106,7 +123,33 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
     }
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.error('Claude Extraction Error:', error);
+    console.warn('Claude Extraction Error (trying Regex fallback):', error.message);
+    
+    // Last resort: Try to parse whatever we have in rawSearchData using regex
+    try {
+      const text = typeof rawSearchData === 'string' ? rawSearchData : (rawSearchData?.answer || JSON.stringify(rawSearchData));
+      const competitors = [];
+      
+      // Look for numbered lists or lines with company names
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const match = line.match(/^[\d\.\-\s*]*([A-Z][A-Za-z0-9\s&,]+)[:\-](.*)/) || line.match(/^[\d\.\-\s*]+([A-Z][A-Za-z0-9\s&,]+)$/);
+        if (match && competitors.length < 8) {
+          const name = match[1].trim();
+          if (name.length > 2 && !['Company', 'Target', 'Competitor'].includes(name)) {
+            competitors.push({
+              name,
+              description: match[2]?.trim() || 'Key strategic competitor identified.'
+            });
+          }
+        }
+      }
+      
+      if (competitors.length > 0) return competitors;
+    } catch (regexError) {
+      console.error('Regex Fallback Failure:', regexError);
+    }
+    
     return [];
   }
 };
