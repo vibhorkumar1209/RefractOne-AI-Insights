@@ -72,33 +72,39 @@ const synthesizeResearch = async (researchData, templateData) => {
 };
 
 const extractCompetitors = async (rawSearchData, targetAccount) => {
-  const systemPrompt = `You are a business intelligence assistant. Extract a clean list of top 10 direct competitors from the provided research data.`;
+  const systemPrompt = `You are a high-end business strategy consultant. Your task is to extract or identify the top 5-10 direct competitors for a company.`;
   const userPrompt = `
   Target Company: ${targetAccount}
   
-  RESEARCH DATA:
-  ${typeof rawSearchData === 'string' ? rawSearchData : JSON.stringify(rawSearchData)}
+  RESEARCH DATA (if any):
+  ${JSON.stringify(rawSearchData)}
 
-  TASK:
-  Extract exactly 5-10 direct competitors. 
-  For each, provide:
-  1. name (official company name)
-  2. description (1-sentence relevance)
+  INSTRUCTION:
+  Based on the research data above AND your own extensive knowledge of the global market:
+  1. Identify the top 5-8 direct competitors for ${targetAccount}.
+  2. For each, provide a precise 1-sentence strategic explanation of why they are the primary peer.
+  
+  If the research data provided is empty or irrelevant, USE YOUR OWN KNOWLEDGE to identify the competitors.
 
   OUTPUT FORMAT:
-  Return ONLY a JSON array: [{"name": "...", "description": "..."}, ...]`;
+  Return ONLY a valid JSON array of objects. No intro/outro.
+  Example: [{"name": "Company A", "description": "Primary competitor in cloud services..."}, ...]`;
 
   try {
     const response = await anthropic.messages.create({
       model: "claude-3-5-sonnet-20240620",
-      max_tokens: 1000,
+      max_tokens: 1500,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     });
 
     const text = response.content[0].text;
     const jsonMatch = text.match(/\[[\s\S]*\]/);
-    return jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    if (!jsonMatch) {
+      console.warn('Claude failed to return JSON list of competitors.');
+      return [];
+    }
+    return JSON.parse(jsonMatch[0]);
   } catch (error) {
     console.error('Claude Extraction Error:', error);
     return [];

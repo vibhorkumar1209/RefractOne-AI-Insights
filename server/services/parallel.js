@@ -3,42 +3,50 @@ require('dotenv').config();
 
 const PARALLEL_API_KEY = process.env.PARALLEL_API_KEY;
 
-const parallelSearch = async (objective) => {
+const parallelSearch = async (query) => {
   try {
-    const response = await axios.post('https://api.parallel.ai/v1beta/search', {
-      objective
+    // Switching to v1/search which uses query and Authorization: Bearer
+    // This matches the user's working test_parallel.js
+    const response = await axios.post('https://api.parallel.ai/v1/search', {
+      query,
+      limit: 5
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': PARALLEL_API_KEY
+        'Authorization': `Bearer ${PARALLEL_API_KEY}`
       }
     });
     return response.data;
   } catch (error) {
     console.error('Parallel Search Error:', error.response?.data || error.message);
-    throw error;
+    // Fallback to v1beta if v1 fails
+    try {
+      const response = await axios.post('https://api.parallel.ai/v1beta/search', {
+        objective: query
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': PARALLEL_API_KEY
+        }
+      });
+      return response.data;
+    } catch (betaError) {
+      console.error('Secondary Parallel Search Error:', betaError.response?.data || betaError.message);
+      throw betaError;
+    }
   }
 };
 
 const findCompetitors = async (targetCompany) => {
-  const objective = `Find the 10 most relevant direct competitors for ${targetCompany}. For each competitor, provide their name and a one-sentence explanation of why they are a competitor. Format the output as a clean list.`;
-  const result = await parallelSearch(objective);
-  // Based on Parallel research, the result structure might contain 'output' or 'answer'
-  return result.output || result.answer || result;
+  const query = `List the top 10 direct competitors for ${targetCompany} company. Provide names and brief descriptions.`;
+  const result = await parallelSearch(query);
+  return result;
 };
 
 const researchPeer = async (peerName, targetAccount, focusArea) => {
-  const objective = `Deep dive research on ${peerName} specifically comparing them to ${targetAccount}. Focus on these areas: ${focusArea || 'general technology stack and business priorities'}. 
-  Dimensions to extract:
-  1. ERP & Core IT Stack
-  2. Digital Commerce capabilities
-  3. AI / ML initiatives
-  4. Estimated IT Spend signals
-  5. Current business priorities.
-  Provide brief, high-impact bullet points for each.`;
-  
-  const result = await parallelSearch(objective);
-  return result.output || result.answer || result;
+  const query = `Research and compare ${peerName} vs ${targetAccount} in terms of ${focusArea || 'technology stack, IT spend, and digital transformation strategy'}.`;
+  const result = await parallelSearch(query);
+  return result;
 };
 
 module.exports = {
