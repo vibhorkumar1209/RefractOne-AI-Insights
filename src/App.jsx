@@ -401,7 +401,8 @@ const ResearchPhase = ({ data, onComplete }) => {
         onComplete(synthesisRes.data.synthesis);
       } catch (err) {
         console.error('Process error:', err);
-        setStatus('An error occurred during research/synthesis.');
+        const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
+        setStatus(`Error: ${errorMsg}`);
       }
     };
     runProcess();

@@ -6,6 +6,33 @@ const anthropic = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY,
 });
 
+async function tryClaudeModels(system, user, max_tokens) {
+  const models = [
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-sonnet-20240620",
+    "claude-3-sonnet-20240229",
+    "claude-3-opus-20240229",
+    "claude-3-haiku-20240307"
+  ];
+
+  for (const model of models) {
+    try {
+      console.log(`Trying Claude model: ${model}`);
+      const response = await anthropic.messages.create({
+        model: model,
+        max_tokens: max_tokens,
+        system: system,
+        messages: [{ role: "user", content: user }],
+      });
+      return response.content[0].text;
+    } catch (e) {
+      console.warn(`Claude ${model} failed:`, e.message);
+      if (e.message.includes('credit') || e.message.includes('balance')) throw e;
+    }
+  }
+  throw new Error('All Claude models failed');
+}
+
 const synthesizeResearch = async (researchData, templateData) => {
   const { sellingOrg, targetAccount, industry, focusArea, solutionPortfolio } = templateData;
   
@@ -58,22 +85,14 @@ const synthesizeResearch = async (researchData, templateData) => {
   Output ONLY the JSON object.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-latest",
-      max_tokens: 4000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    return response.content[0].text;
+    return await tryClaudeModels(systemPrompt, userPrompt, 4000);
   } catch (error) {
-    console.warn('Claude Synthesis Error (falling back to Parallel Chat - base):', error.message);
+    console.warn('All Claude models failed, falling back to Parallel Chat:', error.message);
     
-    // Prepare truncated research data
     const truncatedResearch = {};
     for (const peer in researchData) {
       const data = typeof researchData[peer] === 'string' ? researchData[peer] : JSON.stringify(researchData[peer]);
-      truncatedResearch[peer] = data.substring(0, 5000); // More aggressive truncation for chat models
+      truncatedResearch[peer] = data.substring(0, 5000);
     }
 
     const fallbackUserPrompt = `
@@ -85,7 +104,6 @@ const synthesizeResearch = async (researchData, templateData) => {
       Synthesize into Benchmarking Table and Gap Analysis JSON.
     `;
 
-    // Try multiple models in sequence
     for (const model of ['base', 'core', 'speed']) {
       try {
         console.log(`Trying synthesis with Parallel model: ${model}`);
@@ -99,7 +117,7 @@ const synthesizeResearch = async (researchData, templateData) => {
             'Content-Type': 'application/json',
             'x-api-key': process.env.PARALLEL_API_KEY
           },
-          timeout: 45000 // 45s timeout per attempt
+          timeout: 45000
         });
         
         const content = response.data.choices[0].message.content;
@@ -109,7 +127,6 @@ const synthesizeResearch = async (researchData, templateData) => {
       }
     }
     
-    console.error('Total Synthesis Failure after all fallbacks.');
     throw error;
   }
 };
@@ -133,23 +150,14 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
   Return ONLY a valid JSON array of objects. No intro/outro.
   Example: [{"name": "Company A", "description": "Primary competitor in cloud services..."}, ...]`;
 
-  // 1. Try Claude
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-latest",
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    const text = response.content[0].text;
+    const text = await tryClaudeModels(systemPrompt, userPrompt, 1500);
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (jsonMatch) return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.warn('Claude Extraction Error (trying Parallel Chat fallback):', error.message);
+    console.warn('Claude Extraction failed, trying Parallel fallback:', error.message);
   }
 
-  // 2. Try Parallel Chat (Base model for quick list)
   try {
     const response = await axios.post('https://api.parallel.ai/v1beta/chat/completions', {
       model: 'base',
@@ -170,7 +178,6 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
     console.warn('Parallel Chat fallback failed:', fallbackError.message);
   }
 
-  // 3. Last resort Knowledge Fallback
   const lowercaseTarget = targetAccount.toLowerCase();
   const manualFallbacks = {
     'infosys': ['TCS', 'Accenture', 'Wipro', 'Cognizant', 'HCLTech'],
@@ -182,22 +189,6 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
 
   if (manualFallbacks.length > 0) {
     return manualFallbacks.map(name => ({ name, description: 'Direct global competitor identified via industry knowledge.' }));
-  }
-
-  // 4. Final attempt: Regex on search data if available
-  if (rawSearchData) {
-    try {
-      const text = JSON.stringify(rawSearchData);
-      const competitors = [];
-      const globalGiants = ['Accenture', 'TCS', 'Wipro', 'Cognizant', 'HCLTech', 'Capgemini', 'IBM', 'Deloitte'];
-      
-      globalGiants.forEach(giant => {
-        if (giant.toLowerCase() !== lowercaseTarget && text.includes(giant)) {
-          competitors.push({ name: giant, description: 'Global competitor identified in research results.' });
-        }
-      });
-      if (competitors.length > 0) return competitors;
-    } catch (e) {}
   }
 
   return [];
