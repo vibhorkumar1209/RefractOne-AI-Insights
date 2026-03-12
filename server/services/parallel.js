@@ -20,22 +20,22 @@ const parallelSearch = async (objective) => {
   }
 };
 
-const findCompetitors = async (targetCompany, industry) => {
-  const objective = `Identify 5-10 direct competitors for ${targetCompany} in the ${industry} industry. For each competitor, provide their name and a brief 1-sentence description of their relevance.`;
+const findCompetitors = async (targetCompany) => {
+  const objective = `Find the 10 most relevant direct competitors for ${targetCompany}. For each competitor, provide their name and a one-sentence explanation of why they are a competitor. Format the output as a clean list.`;
   const result = await parallelSearch(objective);
   // Based on Parallel research, the result structure might contain 'output' or 'answer'
   return result.output || result.answer || result;
 };
 
-const researchPeer = async (peerName, targetAccount, industry, focusArea) => {
-  const objective = `Research ${peerName} vs ${targetAccount} in ${industry}. Focus area: ${focusArea}. 
-  Dimensions:
-  - ERP & Core IT Stack
-  - Digital Commerce & Customer Platform
-  - AI / ML & Automation Investments
-  - Estimated Annual IT Spend
-  - Stated IT Priority / Focus Area
-  Provide brief, specific details for each dimension. Max 100 words per peer.`;
+const researchPeer = async (peerName, targetAccount, focusArea) => {
+  const objective = `Deep dive research on ${peerName} specifically comparing them to ${targetAccount}. Focus on these areas: ${focusArea || 'general technology stack and business priorities'}. 
+  Dimensions to extract:
+  1. ERP & Core IT Stack
+  2. Digital Commerce capabilities
+  3. AI / ML initiatives
+  4. Estimated IT Spend signals
+  5. Current business priorities.
+  Provide brief, high-impact bullet points for each.`;
   
   const result = await parallelSearch(objective);
   return result.output || result.answer || result;

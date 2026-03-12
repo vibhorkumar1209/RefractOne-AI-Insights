@@ -21,34 +21,31 @@ import pptxgen from 'pptxgenjs';
 
 const StepIndicator = ({ currentStep }) => {
   const steps = [
-    { id: 1, name: 'Setup', icon: Building2 },
-    { id: 2, name: 'Peers', icon: Search },
-    { id: 3, name: 'Research', icon: Layers },
-    { id: 4, name: 'Insights', icon: Trophy }
+    { id: 1, name: 'Configuration', icon: Building2 },
+    { id: 2, name: 'Selection', icon: Search },
+    { id: 3, name: 'Engine', icon: Layers },
+    { id: 4, name: 'Report', icon: Trophy }
   ];
 
   return (
-    <div className="flex items-center justify-center space-x-4 mb-12">
-      {steps.map((step) => {
+    <div className="step-indicator">
+      {steps.map((step, idx) => {
         const Icon = step.icon;
         const isActive = currentStep === step.id;
         const isCompleted = currentStep > step.id;
 
         return (
-          <div key={step.id} className="flex items-center">
-            <div className={`
-              flex items-center justify-center w-10 h-10 rounded-full border-2 
-              transition-all duration-500
-              ${isActive ? 'border-primary text-primary shadow-[0_0_15px_rgba(99,102,241,0.4)]' : ''}
-              ${isCompleted ? 'bg-primary border-primary text-white' : 'border-border text-muted'}
-              ${!isActive && !isCompleted ? 'bg-transparent text-muted' : ''}
-            `}>
-              {isCompleted ? <CheckCircle2 size={20} /> : <Icon size={20} />}
+          <React.Fragment key={step.id}>
+            <div className="step-item">
+              <div className={`step-circle ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}>
+                {isCompleted ? <CheckCircle2 size={24} /> : <Icon size={22} />}
+              </div>
+              <span className={`step-label ${isActive ? 'active' : ''}`}>{step.name}</span>
             </div>
-            {step.id < steps.length && (
-              <div className={`w-8 h-0.5 mx-2 ${isCompleted ? 'bg-primary' : 'bg-border'}`} />
+            {idx < steps.length - 1 && (
+              <div className={`w-12 h-0.5 mt-[-20px] rounded-full transition-colors duration-500 ${isCompleted ? 'bg-indigo-500' : 'bg-slate-200'}`} />
             )}
-          </div>
+          </React.Fragment>
         );
       })}
     </div>
@@ -56,70 +53,66 @@ const StepIndicator = ({ currentStep }) => {
 };
 
 const SetupForm = ({ data, onChange, onNext }) => {
-  const isFormValid = data.sellingOrg && data.targetAccount && data.industry;
+  const isFormValid = data.sellingOrg && data.targetAccount;
 
   return (
-    <div className="glass-card p-8 max-w-2xl mx-auto fade-in">
-      <h2 className="text-2xl font-bold mb-6 text-white text-center">Project Configuration</h2>
-      <div className="space-y-6">
-        <div className="input-group">
-          <label className="input-label">User Organization (Selling Side)</label>
-          <input 
-            type="text" 
-            className="input-field" 
-            placeholder="e.g. EdgeVerve, Salesforce" 
-            value={data.sellingOrg}
-            onChange={(e) => onChange('sellingOrg', e.target.value)}
-          />
-        </div>
-        <div className="input-group">
-          <label className="input-label">Target Account (Client Side)</label>
-          <input 
-            type="text" 
-            className="input-field" 
-            placeholder="e.g. Incora, Maersk" 
-            value={data.targetAccount}
-            onChange={(e) => onChange('targetAccount', e.target.value)}
-          />
-        </div>
-        <div className="grid-cols-2">
-          <div className="input-group">
-            <label className="input-label">Industry Context</label>
+    <div className="glass-card p-10 max-w-2xl mx-auto fade-in shadow-2xl bg-white border-0">
+      <div className="text-center mb-10">
+        <h2 className="text-3xl font-extrabold text-slate-900 mb-2">Project Builder</h2>
+        <p className="text-slate-500">Configure your benchmarking mission to begin research</p>
+      </div>
+      
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="input-group mb-0">
+            <label className="input-label">User Organization</label>
             <input 
               type="text" 
               className="input-field" 
-              placeholder="e.g. Aerospace Supply Chain" 
-              value={data.industry}
-              onChange={(e) => onChange('industry', e.target.value)}
+              placeholder="Your company name" 
+              value={data.sellingOrg}
+              onChange={(e) => onChange('sellingOrg', e.target.value)}
             />
           </div>
-          <div className="input-group">
-            <label className="input-label">Focus Area (Optional)</label>
+          <div className="input-group mb-0">
+            <label className="input-label">Target Company</label>
             <input 
               type="text" 
               className="input-field" 
-              placeholder="e.g. Sustainability, AI" 
-              value={data.focusArea}
-              onChange={(e) => onChange('focusArea', e.target.value)}
+              placeholder="Account to research" 
+              value={data.targetAccount}
+              onChange={(e) => onChange('targetAccount', e.target.value)}
             />
           </div>
         </div>
+
         <div className="input-group">
-          <label className="input-label">Solution Portfolio (Your products to map)</label>
+          <label className="input-label">Focus Area (Optional)</label>
+          <input 
+            type="text" 
+            className="input-field" 
+            placeholder="e.g. ESG, Cloud Computing, GenAI" 
+            value={data.focusArea}
+            onChange={(e) => onChange('focusArea', e.target.value)}
+          />
+        </div>
+
+        <div className="input-group">
+          <label className="input-label">Solution Portfolio</label>
           <textarea 
-            className="input-field" 
-            rows="2"
-            placeholder="e.g. AI Next, AssistEdge RPA, TradeEdge" 
+            className="input-field min-h-[100px] resize-none" 
+            placeholder="List your products or key solution pillars to be mapped against target gaps..." 
             value={data.solutionPortfolio}
             onChange={(e) => onChange('solutionPortfolio', e.target.value)}
           />
         </div>
+
         <button 
-          className="btn-primary w-full py-4 text-lg" 
+          className="btn-primary w-full py-5 text-lg font-bold shadow-indigo-200" 
           disabled={!isFormValid}
           onClick={onNext}
         >
-          Identify Competitors <ArrowRight size={20} />
+          Initialize Discovery Engine <ArrowRight size={22} />
         </button>
       </div>
     </div>
@@ -137,19 +130,22 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
     const getCompetitors = async () => {
       try {
         const response = await axios.post('/api/competitors', {
-          targetCompany: data.targetAccount,
-          industry: data.industry
+          targetCompany: data.targetAccount
         });
         
-        // Handle Parallel.AI response format
         const output = response.data.competitors;
         let peers = [];
         if (typeof output === 'string') {
-          // Simple parsing if AI returned a list string
-          peers = output.split('\n').filter(p => p.trim()).map(p => ({ 
-            name: p.replace(/^\d+\.\s*/, '').replace(/^- \s*/, '').split(':')[0].trim(),
-            description: p.includes(':') ? p.split(':')[1].trim() : ''
-          }));
+          // Robust parsing for various AI list formats
+          const lines = output.split('\n').filter(l => l.trim() && l.match(/[a-zA-Z]/));
+          peers = lines.map(p => {
+            const clean = p.replace(/^[\d\.\-\s*]+/, '').trim();
+            const parts = clean.split(/[:\-]/);
+            return {
+              name: parts[0]?.trim() || clean,
+              description: parts.slice(1).join(':').trim() || 'Direct competitor identified via research.'
+            };
+          }).filter(p => p.name.length > 2);
         } else if (Array.isArray(output)) {
           peers = output;
         }
@@ -158,12 +154,12 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
         setLoading(false);
       } catch (err) {
         console.error('Peer discovery error:', err);
-        setError('Failed to discover competitors automatically.');
+        setError('Discovery engine paused. You can still add peers manually below.');
         setLoading(false);
       }
     };
     getCompetitors();
-  }, [data.targetAccount, data.industry]);
+  }, [data.targetAccount]);
 
   const togglePeer = (peerName) => {
     if (selectedPeers.includes(peerName)) {
@@ -294,7 +290,6 @@ const ResearchPhase = ({ data, onComplete }) => {
             const res = await axios.post('/api/research/peer', {
               peer,
               targetAccount: data.targetAccount,
-              industry: data.industry,
               focusArea: data.focusArea
             });
             researchData[peer] = res.data.result;
@@ -361,134 +356,138 @@ const ResultsDashboard = ({ report, onRestart, formData }) => {
 
   const exportToPPTX = () => {
     let pptx = new pptxgen();
-    
-    // Slide 1: Peer Benchmarking
     let slide1 = pptx.addSlide();
-    slide1.addText("Peer Benchmarking Table", { x: 0.5, y: 0.5, fontSize: 24, color: "003366", bold: true });
+    slide1.addText("Peer Benchmarking: " + formData.targetAccount, { x: 0.5, y: 0.5, fontSize: 22, color: "1a1a1a", bold: true });
     
     const headers = ["Dimension", ...(benchmarkingTable.headers || [])];
     const rows = benchmarkingTable.rows?.map(row => [row.dimension, ...row.values]) || [];
     
     slide1.addTable([headers, ...rows], { 
       x: 0.5, y: 1.2, w: 9, 
-      fontSize: 8, 
-      border: { pt: 1, color: "CCCCCC" },
-      fill: { color: "F8FAFC" },
-      autoPage: true
+      fontSize: 9, 
+      border: { pt: 0.5, color: "dddddd" },
+      fill: { color: "ffffff" }
     });
 
-    // Slide 2: Gap Analysis
     let slide2 = pptx.addSlide();
-    slide2.addText("Gap Analysis & Opportunity Map", { x: 0.5, y: 0.5, fontSize: 24, color: "003366", bold: true });
+    slide2.addText("Opportunity Map & Solution Fit", { x: 0.5, y: 0.5, fontSize: 22, color: "1a1a1a", bold: true });
     
-    const gapHeaders = ["Dimension", "Peers Position", "Target Position", "Status", "Solution Fit"];
+    const gapHeaders = ["Dimension", "Status", "Solution Fit"];
     const gapRows = gapAnalysis.map(item => [
       item.dimension, 
-      item.peerState, 
-      item.targetState, 
       item.severity, 
       `${item.solution.name}: ${item.solution.proofPoint}`
     ]);
 
     slide2.addTable([gapHeaders, ...gapRows], { 
       x: 0.5, y: 1.2, w: 9, 
-      fontSize: 8, 
-      border: { pt: 1, color: "CCCCCC" },
-      fill: { color: "F8FAFC" }
+      fontSize: 9, 
+      border: { pt: 0.5, color: "dddddd" },
+      fill: { color: "ffffff" }
     });
 
-    pptx.writeFile({ fileName: `RefractOne_Insights_${formData.targetAccount}.pptx` });
+    pptx.writeFile({ fileName: `RefractOne_${formData.targetAccount}.pptx` });
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-12 fade-in">
-      <div className="flex justify-between items-center bg-white/5 border border-white/10 p-6 rounded-2xl">
+    <div className="max-w-6xl mx-auto space-y-10 fade-in pb-20">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 gap-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">Strategic Insights Dashboard</h1>
-          <p className="text-muted mt-1">Actionable intelligence for account planning and pursuing</p>
+          <div className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-widest mb-3">
+            Strategy Intelligence
+          </div>
+          <h1 className="text-4xl font-black text-slate-900 tracking-tight">Executive Briefing</h1>
+          <p className="text-slate-500 mt-2 text-lg">Benchmark analysis for <span className="text-indigo-600 font-bold">{formData.targetAccount}</span></p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-3 w-full md:w-auto">
           <button 
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 font-semibold hover:bg-green-500/20 transition-all"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-emerald-500 text-white font-bold hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-200"
             onClick={exportToPPTX}
           >
             <Download size={20} /> Export PPTX
           </button>
           <button 
-            className="px-6 py-3 rounded-xl border border-white/10 text-white hover:bg-white/5 transition-colors"
+            className="flex-1 md:flex-none px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
             onClick={onRestart}
           >
-            New Project
+            New Brief
           </button>
         </div>
       </div>
 
-      <section>
-        <div className="flex items-center gap-3 mb-6">
-          <Layers className="text-primary" />
-          <h2 className="text-2xl font-bold text-white">Peer Benchmarking</h2>
+      <section className="bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <Layers size={20} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 border-b-4 border-indigo-100 pb-1">Competitive Landscape</h2>
         </div>
-        <div className="glass-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/10 bg-white/5">
-                  <th className="p-4 text-sm font-bold text-muted uppercase tracking-wider">Dimension</th>
-                  {benchmarkingTable.headers?.map((header, idx) => (
-                    <th key={idx} className="p-4 text-sm font-bold text-white uppercase tracking-wider">{header}</th>
+        <div className="overflow-x-auto -mx-8 px-8">
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th className="pb-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Strategic Dimension</th>
+                {benchmarkingTable.headers?.map((header, idx) => (
+                  <th key={idx} className="pb-4 px-4 text-xs font-black text-indigo-500 uppercase tracking-widest text-center">{header}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {benchmarkingTable.rows?.map((row, idx) => (
+                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="py-6 px-4 font-bold text-slate-800 bg-slate-50/30 rounded-l-xl w-64">{row.dimension}</td>
+                  {row.values.map((val, vIdx) => (
+                    <td key={vIdx} className="py-6 px-4 text-sm text-slate-600 leading-relaxed min-w-[220px] text-center">{val}</td>
                   ))}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-white/10">
-                {benchmarkingTable.rows?.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-white/5 transition-colors">
-                    <td className="p-4 font-semibold text-primary/90">{row.dimension}</td>
-                    {row.values.map((val, vIdx) => (
-                      <td key={vIdx} className="p-4 text-sm text-slate-300 leading-relaxed min-w-[200px]">{val}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section>
-        <div className="flex items-center gap-3 mb-6">
-          <Target className="text-primary" />
-          <h2 className="text-2xl font-bold text-white">Gap Analysis & Opportunity Map</h2>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600">
+            <Target size={20} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 border-b-4 border-rose-100 pb-1">Opportunity Velocity Map</h2>
         </div>
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {gapAnalysis.map((item, idx) => (
-            <div key={idx} className="glass-card p-6 flex flex-col md:flex-row gap-6 hover:border-primary/30 transition-all group">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`
-                    w-3 h-3 rounded-full shadow-[0_0_8px]
-                    ${item.severity === 'RED' ? 'bg-red-500 shadow-red-500/50' : ''}
-                    ${item.severity === 'AMBER' ? 'bg-amber-500 shadow-amber-500/50' : ''}
-                    ${item.severity === 'GREEN' ? 'bg-green-500 shadow-green-500/50' : ''}
-                  `} />
-                  <h3 className="text-xl font-bold text-white">{item.dimension}</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Peers' Position</h4>
-                    <p className="text-sm text-slate-300 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{item.peerState}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Target Position</h4>
-                    <p className="text-sm text-slate-300 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{item.targetState}</p>
-                  </div>
+            <div key={idx} className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-indigo-100 transition-all flex flex-col gap-6 relative overflow-hidden group">
+              <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 group-hover:opacity-20 transition-opacity ${
+                item.severity === 'RED' ? 'bg-rose-500' : item.severity === 'AMBER' ? 'bg-amber-500' : 'bg-emerald-500'
+              }`} />
+              
+              <div className="flex justify-between items-start">
+                <div className="flex flex-col">
+                  <span className={`text-[10px] font-black uppercase tracking-tighter mb-1 ${
+                    item.severity === 'RED' ? 'text-rose-600' : item.severity === 'AMBER' ? 'text-amber-600' : 'text-emerald-600'
+                  }`}>
+                    {item.severity} Priority Gap
+                  </span>
+                  <h3 className="text-2xl font-black text-slate-900 leading-none">{item.dimension}</h3>
                 </div>
               </div>
-              <div className="w-full md:w-1/3 bg-primary/10 border-l border-primary/20 p-6 rounded-r-xl group-hover:bg-primary/15 transition-all">
-                <h4 className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Solution Fit</h4>
-                <div className="p-4 bg-primary/20 rounded-xl border border-primary/30">
-                  <p className="font-bold text-white mb-1">{item.solution.name}</p>
-                  <p className="text-xs text-slate-300 leading-relaxed italic">{item.solution.proofPoint}</p>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Market Benchmark</h4>
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{item.peerState}</p>
                 </div>
+                <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100/50">
+                  <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2">Target Status</h4>
+                  <p className="text-sm text-slate-700 leading-relaxed font-semibold">{item.targetState}</p>
+                </div>
+              </div>
+
+              <div className="mt-2 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl text-white shadow-lg shadow-indigo-200 relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="px-2 py-1 bg-white/20 rounded text-[10px] font-bold uppercase">Solution Fit</div>
+                </div>
+                <h5 className="text-xl font-black mb-2">{item.solution.name}</h5>
+                <p className="text-sm text-indigo-100 leading-relaxed">{item.solution.proofPoint}</p>
               </div>
             </div>
           ))}
