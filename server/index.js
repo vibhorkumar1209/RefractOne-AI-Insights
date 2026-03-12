@@ -20,12 +20,18 @@ app.post('/api/competitors', async (req, res) => {
   }
 
   try {
-    const rawCompetitors = await findCompetitors(targetCompany);
+    let rawCompetitors = null;
+    try {
+      rawCompetitors = await findCompetitors(targetCompany);
+    } catch (e) {
+      console.warn('Initial search for competitors failed, falling back to AI knowledge:', e.message);
+    }
+    
     const cleanCompetitors = await extractCompetitors(rawCompetitors, targetCompany);
     res.json({ competitors: cleanCompetitors });
   } catch (error) {
-    console.error('Competitor discovery error:', error);
-    res.status(500).json({ error: 'Failed to find competitors.', details: error.message });
+    console.error('Total failure in competitor discovery:', error);
+    res.status(500).json({ error: 'Failed to discover competitors.', details: error.message });
   }
 });
 

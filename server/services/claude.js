@@ -84,7 +84,7 @@ const extractCompetitors = async (rawSearchData, targetAccount) => {
   1. Identify the top 5-8 direct competitors for ${targetAccount}.
   2. For each, provide a precise 1-sentence strategic explanation of why they are the primary peer.
   
-  If the research data provided is empty or irrelevant, USE YOUR OWN KNOWLEDGE to identify the competitors.
+  CRITICAL: If the provided RESEARCH DATA is empty, null, or contains errors, YOU MUST STILL provide a list of competitors based on your internal training data. NEVER return an empty list if you recognize the target company.
 
   OUTPUT FORMAT:
   Return ONLY a valid JSON array of objects. No intro/outro.

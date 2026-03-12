@@ -248,8 +248,8 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
   return (
     <div className="glass-card p-8 max-w-4xl mx-auto fade-in">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">Select Benchmarking Peers</h2>
-        <span className="text-sm font-medium px-3 py-1 rounded-full bg-primary/20 text-primary border border-primary/30">
+        <h2 className="text-2xl font-bold text-slate-900">Select Benchmarking Peers</h2>
+        <span className="text-sm font-bold px-4 py-1.5 rounded-full bg-indigo-600 text-white shadow-md">
           {selectedPeers.length} / 5 Selected
         </span>
       </div>
@@ -271,40 +271,56 @@ const PeerSelection = ({ data, onPeersSelected, onBack }) => {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="skeleton h-24 w-full" />)}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-indigo-600 font-bold animate-pulse mb-4">
+            <Loader2 className="animate-spin" />
+            <span>AI Discovery Engine identifying top competitors...</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1,2,3,4].map(i => <div key={i} className="skeleton h-24 w-full" />)}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {discoveredPeers.length === 0 && !error && (
+            <div className="col-span-full p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+              <Search className="mx-auto text-slate-300 mb-2" size={32} />
+              <p className="text-slate-500 font-medium">No peers discovered automatically. Add them manually above.</p>
+            </div>
+          )}
           {discoveredPeers.map((peer, idx) => (
             <div 
               key={idx}
               onClick={() => togglePeer(peer.name)}
               className={`
-                p-4 rounded-xl border cursor-pointer transition-all duration-200
+                p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200
                 ${selectedPeers.includes(peer.name) 
-                  ? 'bg-primary/20 border-primary shadow-[0_0_15px_rgba(99,102,241,0.2)]' 
-                  : 'bg-white/5 border-white/10 hover:border-white/20'}
+                  ? 'bg-indigo-50 border-indigo-600 shadow-lg shadow-indigo-100' 
+                  : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50'}
               `}
             >
-              <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-white">{peer.name}</h3>
-                {selectedPeers.includes(peer.name) && <CheckCircle2 className="text-primary" size={18} />}
+              <div className="flex justify-between items-start mb-2">
+                <h3 className={`font-bold transition-colors ${selectedPeers.includes(peer.name) ? 'text-indigo-900' : 'text-slate-800'}`}>
+                  {peer.name}
+                </h3>
+                {selectedPeers.includes(peer.name) && <CheckCircle2 className="text-indigo-600" size={20} />}
               </div>
-              <p className="text-xs text-muted mt-1 leading-relaxed line-clamp-2">{peer.description}</p>
+              <p className={`text-xs leading-relaxed line-clamp-2 ${selectedPeers.includes(peer.name) ? 'text-indigo-700' : 'text-slate-500'}`}>
+                {peer.description}
+              </p>
             </div>
           ))}
           {selectedPeers.filter(p => !discoveredPeers.some(dp => dp.name === p)).map((peer, idx) => (
             <div 
               key={`manual-${idx}`}
               onClick={() => togglePeer(peer)}
-              className="p-4 rounded-xl border border-primary bg-primary/20 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.2)]"
+              className="p-5 rounded-2xl border-2 border-indigo-600 bg-indigo-50 shadow-lg shadow-indigo-100 cursor-pointer"
             >
-              <div className="flex justify-between items-start">
-                <h3 className="font-semibold text-white">{peer}</h3>
-                <CheckCircle2 className="text-primary" size={18} />
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-indigo-900">{peer}</h3>
+                <CheckCircle2 className="text-indigo-600" size={20} />
               </div>
-              <p className="text-xs text-muted mt-1">Manually added competitor</p>
+              <p className="text-xs text-indigo-700">Manually added strategist target</p>
             </div>
           ))}
         </div>
@@ -338,13 +354,17 @@ const ResearchPhase = ({ data, onComplete }) => {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    if (!data.peers || data.peers.length === 0) {
+      setStatus('Waiting for peer data...');
+      return;
+    }
+
     const runProcess = async () => {
       try {
-        // Step 1: Research Peers Individually (to avoid Vercel timeouts)
         const researchData = {};
         for (let i = 0; i < data.peers.length; i++) {
           const peer = data.peers[i];
-          setStatus(`Researching ${peer}...`);
+          setStatus(`Analyzing ${peer} strategic posture...`);
           setProgress(Math.round((i / data.peers.length) * 50));
           
           try {
@@ -360,9 +380,8 @@ const ResearchPhase = ({ data, onComplete }) => {
           }
         }
         
-        // Step 2: Synthesis
         setProgress(70);
-        setStatus('Synthesizing research with Claude AI...');
+        setStatus('Synthesizing high-impact benchmarking insights...');
         const synthesisRes = await axios.post('/api/synthesize', {
           researchData,
           templateData: {
@@ -382,7 +401,7 @@ const ResearchPhase = ({ data, onComplete }) => {
       }
     };
     runProcess();
-  }, []);
+  }, [data.peers, data.targetAccount]);
 
   return (
     <div className="glass-card p-12 max-w-2xl mx-auto text-center fade-in">
